@@ -23,4 +23,5 @@ abstract final class AppConstants {
   static const legacyDeviceNamePrefix = 'BTMsg_';
   static const localPeerPrefix = 'local:';
   static const udpDiscoveryPort = 45678;
+  static const tcpDiscoveryPort = 45679;
 }

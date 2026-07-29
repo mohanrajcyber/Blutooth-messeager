@@ -26,11 +26,14 @@ class CodePairingService {
   String? _connectedPeerCode;
   String? _connectedPeerName;
   String _readBuffer = '';
+  String _localIp = '';
 
   ServerSocket? _server;
+  ServerSocket? _discoveryServer;
   RawDatagramSocket? _udp;
   Socket? _socket;
   Timer? _broadcastTimer;
+  Timer? _searchProbeTimer;
 
   String? _searchingForCode;
   Completer<CodePeerFound?>? _searchCompleter;
@@ -44,6 +47,7 @@ class CodePairingService {
   Stream<void> get pairedStream => _pairedController.stream;
 
   String get myCode => _myCode;
+  String get localIp => _localIp;
   String? get connectedPeerCode => _connectedPeerCode;
   String? get connectedPeerName => _connectedPeerName;
   bool get isConnected => _socket != null;
@@ -54,7 +58,9 @@ class CodePairingService {
 
     _myName = displayName.trim().isEmpty ? 'User' : displayName.trim();
     _myCode = _generateCode();
+    await _refreshLocalIp();
     await _startServer();
+    await _startTcpDiscovery();
     await _startUdp();
     _broadcastTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       _broadcastPresence();
@@ -70,9 +76,85 @@ class CodePairingService {
     return '$prefix-$suffix';
   }
 
+  Future<void> _refreshLocalIp() async {
+    _localIp = '';
+    try {
+      for (final iface in await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      )) {
+        for (final addr in iface.addresses) {
+          final ip = addr.address;
+          if (!ip.startsWith('127.')) {
+            _localIp = ip;
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<List<String>> _candidateHostIps() async {
+    await _refreshLocalIp();
+    final ips = <String>{
+      '192.168.43.1',
+      '192.168.137.1',
+      '192.168.0.1',
+      '192.168.1.1',
+    };
+
+    if (_localIp.isNotEmpty) {
+      final parts = _localIp.split('.');
+      if (parts.length == 4) {
+        final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
+        ips.add('$prefix.1');
+        for (var i = 1; i <= 30; i++) {
+          ips.add('$prefix.$i');
+        }
+      }
+    }
+
+    return ips.where((ip) => !ip.startsWith('127.')).toList();
+  }
+
+  Future<List<InternetAddress>> _udpTargets() async {
+    final targets = <InternetAddress>{
+      InternetAddress('255.255.255.255'),
+    };
+
+    if (_localIp.isNotEmpty) {
+      final parts = _localIp.split('.');
+      if (parts.length == 4) {
+        targets.add(
+          InternetAddress('${parts[0]}.${parts[1]}.${parts[2]}.255'),
+        );
+        targets.add(
+          InternetAddress('${parts[0]}.${parts[1]}.${parts[2]}.1'),
+        );
+      }
+    }
+
+    for (final ip in await _candidateHostIps()) {
+      targets.add(InternetAddress(ip));
+    }
+
+    return targets.toList();
+  }
+
   Future<void> _startServer() async {
     _server = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
     _server!.listen(_onClient);
+  }
+
+  Future<void> _startTcpDiscovery() async {
+    try {
+      _discoveryServer = await ServerSocket.bind(
+        InternetAddress.anyIPv4,
+        AppConstants.tcpDiscoveryPort,
+        shared: true,
+      );
+      _discoveryServer!.listen(_onDiscoveryClient);
+    } catch (_) {}
   }
 
   Future<void> _startUdp() async {
@@ -80,20 +162,32 @@ class CodePairingService {
       InternetAddress.anyIPv4,
       AppConstants.udpDiscoveryPort,
       reuseAddress: true,
-      reusePort: true,
+      reusePort: !Platform.isWindows,
     );
     _udp!.broadcastEnabled = true;
     _udp!.listen(_onUdp);
   }
 
   void _broadcastPresence() {
+    unawaited(_sendUdpToAll('BTMSG|$_myCode|$_myName|${_server!.port}'));
+  }
+
+  Future<void> _sendUdpToAll(String msg) async {
+    if (_udp == null || _server == null) return;
+    final data = utf8.encode(msg);
+    for (final target in await _udpTargets()) {
+      try {
+        _udp!.send(data, target, AppConstants.udpDiscoveryPort);
+      } catch (_) {}
+    }
+  }
+
+  void _sendPresenceUnicast(InternetAddress address, int port) {
     if (_udp == null || _server == null) return;
     final msg = 'BTMSG|$_myCode|$_myName|${_server!.port}';
-    _udp!.send(
-      utf8.encode(msg),
-      InternetAddress('255.255.255.255'),
-      AppConstants.udpDiscoveryPort,
-    );
+    try {
+      _udp!.send(utf8.encode(msg), address, port);
+    } catch (_) {}
   }
 
   void _onUdp(RawSocketEvent event) {
@@ -103,49 +197,154 @@ class CodePairingService {
 
     try {
       final parts = utf8.decode(dg.data).split('|');
-      if (parts.length < 4 || parts[0] != 'BTMSG') return;
-      if (parts[1] == _myCode) return;
+      if (parts.isEmpty) return;
 
-      if (_searchingForCode != null &&
-          parts[1].toUpperCase() == _searchingForCode &&
-          _searchCompleter != null &&
-          !_searchCompleter!.isCompleted) {
-        _searchCompleter!.complete(
-          CodePeerFound(
+      if (parts[0] == 'BTMSG_QUERY' && parts.length >= 2) {
+        if (parts[1].toUpperCase() == _myCode.toUpperCase()) {
+          _sendPresenceUnicast(dg.address, dg.port);
+        }
+        return;
+      }
+
+      if (parts.length < 4 || parts[0] != 'BTMSG') return;
+      if (parts[1].toUpperCase() == _myCode.toUpperCase()) return;
+
+      _maybeCompleteSearch(
+        code: parts[1],
+        name: parts[2],
+        address: dg.address,
+        port: int.parse(parts[3]),
+      );
+    } catch (_) {}
+  }
+
+  void _onDiscoveryClient(Socket client) {
+    var buffer = '';
+    client.listen(
+      (data) {
+        buffer += utf8.decode(data);
+        while (buffer.contains('\n')) {
+          final idx = buffer.indexOf('\n');
+          final line = buffer.substring(0, idx).trim();
+          buffer = buffer.substring(idx + 1);
+          if (line.startsWith('FIND|')) {
+            final code = line.substring(5).trim().toUpperCase();
+            if (code == _myCode.toUpperCase()) {
+              client.add(
+                utf8.encode('OK|$_myCode|$_myName|${_server!.port}\n'),
+              );
+            }
+          }
+        }
+      },
+      onDone: () => client.destroy(),
+      onError: (_) => client.destroy(),
+    );
+  }
+
+  void _maybeCompleteSearch({
+    required String code,
+    required String name,
+    required InternetAddress address,
+    required int port,
+  }) {
+    if (_searchingForCode == null ||
+        _searchCompleter == null ||
+        _searchCompleter!.isCompleted) {
+      return;
+    }
+    if (code.toUpperCase() != _searchingForCode) return;
+
+    _searchCompleter!.complete(
+      CodePeerFound(code: code, name: name, address: address, port: port),
+    );
+  }
+
+  Future<void> _probeForCode(String code) async {
+    await _sendUdpToAll('BTMSG_QUERY|$code');
+    await _sendUdpToAll('BTMSG|$_myCode|$_myName|${_server!.port}');
+
+    final ips = await _candidateHostIps();
+    await Future.wait(
+      ips.map((ip) => _tcpProbe(code, ip)),
+      eagerError: false,
+    );
+  }
+
+  Future<void> _tcpProbe(String code, String ip) async {
+    if (_searchCompleter?.isCompleted ?? true) return;
+
+    Socket? socket;
+    try {
+      socket = await Socket.connect(
+        ip,
+        AppConstants.tcpDiscoveryPort,
+        timeout: const Duration(milliseconds: 600),
+      );
+      socket.add(utf8.encode('FIND|$code\n'));
+
+      final buffer = StringBuffer();
+      await for (final data in socket.timeout(const Duration(seconds: 2))) {
+        buffer.write(utf8.decode(data));
+        if (!buffer.toString().contains('\n')) continue;
+
+        final line = buffer.toString().split('\n').first.trim();
+        final parts = line.split('|');
+        if (parts.length >= 4 &&
+            parts[0] == 'OK' &&
+            parts[1].toUpperCase() == code) {
+          _maybeCompleteSearch(
             code: parts[1],
             name: parts[2],
-            address: dg.address,
+            address: InternetAddress(ip),
             port: int.parse(parts[3]),
-          ),
-        );
+          );
+          break;
+        }
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      await socket?.close();
+    }
   }
 
   Future<bool> connectToCode(String partnerCode) async {
     final code = partnerCode.trim().toUpperCase();
     if (code.isEmpty) return false;
-    if (code == _myCode) {
+    if (code == _myCode.toUpperCase()) {
       _statusController.add('Enter partner code, not your own');
       return false;
     }
 
     _searchingForCode = code;
     _searchCompleter = Completer<CodePeerFound?>();
-    _statusController.add('Searching for $code…');
-    _broadcastPresence();
+    _statusController.add(
+      _localIp.isEmpty
+          ? 'Searching for $code…'
+          : 'Searching for $code on $_localIp…',
+    );
+
+    _searchProbeTimer?.cancel();
+    _searchProbeTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => unawaited(_probeForCode(code)),
+    );
+    unawaited(_probeForCode(code));
 
     final found = await _searchCompleter!.future.timeout(
-      const Duration(seconds: 20),
+      const Duration(seconds: 25),
       onTimeout: () => null,
     );
 
+    _searchProbeTimer?.cancel();
+    _searchProbeTimer = null;
     _searchingForCode = null;
     _searchCompleter = null;
 
     if (found == null) {
       _statusController.add(
-        'Code $code not found. Use same WiFi or phone hotspot.',
+        'Code $code not found. Keep both apps on this screen. '
+        'Phone hotspot ON, PC on same WiFi.',
       );
       return false;
     }
@@ -166,7 +365,7 @@ class CodePairingService {
       _pairedController.add(null);
       return true;
     } catch (e) {
-      _statusController.add('Connection failed');
+      _statusController.add('Connection failed — check Windows Firewall');
       return false;
     }
   }
@@ -232,8 +431,10 @@ class CodePairingService {
 
   Future<void> dispose() async {
     _broadcastTimer?.cancel();
+    _searchProbeTimer?.cancel();
     await _socket?.close();
     _udp?.close();
+    await _discoveryServer?.close();
     await _server?.close();
     await _incomingController.close();
     await _statusController.close();

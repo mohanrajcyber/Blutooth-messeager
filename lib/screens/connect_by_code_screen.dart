@@ -169,16 +169,27 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            if (code.localIp.isNotEmpty)
+              Text(
+                'Network: ${code.localIp}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.subtitle,
+                  fontSize: 13,
+                ),
+              ),
             Text(
               _status,
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.subtitle),
             ),
-            const Spacer(),
+            const SizedBox(height: 12),
             const Text(
-              'Internet வேண்டாம். Phone hotspot ON → PC hotspot-ல join → '
-              'இருவரும் code enter பண்ணுங்க. Bluetooth work ஆகலனா இது use பண்ணுங்க.',
+              '1. Phone-ல Connect by code screen open வை\n'
+              '2. Phone hotspot ON → PC join (Nothing Phone WiFi)\n'
+              '3. PC code phone-ல enter, phone code PC-ல enter\n'
+              '4. Windows Firewall block ஆனா allow பண்ணுங்க',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.subtitle, fontSize: 13),
             ),
