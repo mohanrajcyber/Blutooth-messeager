@@ -1,0 +1,131 @@
+﻿Diagnose log at 2026-07-29T06:55:48Z
+
+AppPath: C:\Program Files\Git\mingw64\bin\git-credential-manager.exe
+InstallDir: C:\Program Files\Git\mingw64\bin\
+Version: 2.8.0+d5e8a3442d48cc5efe7014e093e44242c0bd395f
+
+------------
+Diagnostic: Environment
+Skipped: False
+Success: True
+Exception: None
+Log:
+OSType: Windows
+OSVersion: 10.0 (build 26200)
+Reading environment variables... OK
+ Variables:
+OneDriveConsumer=C:\Users\ADMIN\OneDrive
+ProgramFiles(x86)=C:\Program Files (x86)
+USERNAME=ADMIN
+ProgramW6432=C:\Program Files
+windir=C:\WINDOWS
+ChocolateyInstall=C:\ProgramData\chocolatey
+EFC_19408_4126798990=1
+EFC_19408_1262719628=1
+EFC_19408_2283032206=1
+CURSOR_CONVERSATION_ID=331e7493-784d-4d58-bfd6-312896ac1ec1
+Path=C:\Program Files\GitHub CLI;C:\Program Files\GitHub CLI;C:\Program Files\GitHub CLI;C:\Program Files\GitHub CLI;C:\Program Files\GitHub CLI;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;C:\Users\ADMIN\Documents\flutter\bin;c:\Users\ADMIN\AppData\Local\Programs\cursor\resources\app\node_modules\@vscode\ripgrep\bin;C:\Python314\Scripts\;C:\Python314\;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;C:\Program Files\nodejs\;C:\ProgramData\chocolatey\bin;C:\Program Files\Git\cmd;C:\Program Files\Docker\Docker\resources\bin;C:\Program Files\dotnet\;C:\Program Files\Void\bin;C:\Users\ADMIN\AppData\Local\Programs\Python\Python312\Scripts\;C:\Users\ADMIN\AppData\Local\Programs\Python\Python312\;C:\Users\ADMIN\AppData\Local\Programs\Python\Launcher\;C:\Users\ADMIN\AppData\Local\Microsoft\WindowsApps;C:\Users\ADMIN\AppData\Local\Programs\cursor\resources\app\bin;C:\Users\ADMIN\AppData\Roaming\npm;C:\Users\ADMIN\AppData\Local\GitHubDesktop\bin;C:\Users\ADMIN\AppData\Local\Programs\Devin\bin
+CMAKE_TLS_VERIFY=0
+VSCODE_ESM_ENTRYPOINT=vs/workbench/api/node/extensionHostProcess
+SSLKEYLOGFILE=\\.\avgMonFltProxy\FFFFAA8544DC5DD0
+VSCODE_CWD=C:\Users\ADMIN\AppData\Local\Programs\cursor
+USERPROFILE=C:\Users\ADMIN
+PROCESSOR_REVISION=9705
+PSExecutionPolicyPreference=Bypass
+ChocolateyLastPathUpdate=134276118005323820
+FPS_BROWSER_APP_PROFILE_STRING=Internet Explorer
+FPS_BROWSER_USER_PROFILE_STRING=Default
+LOGONSERVER=\\DESKTOP-N3HIQUE
+TEMP=C:\Users\ADMIN\AppData\Local\Temp
+NO_COLOR=1
+SystemRoot=C:\WINDOWS
+PROCESSOR_IDENTIFIER=Intel64 Family 6 Model 151 Stepping 5, GenuineIntel
+CURSOR_EXTENSION_HOST_ROLE=agent-exec
+VSCODE_PROCESS_TITLE=extension-host (agent-exec) project 1 [1-8]
+OneDrive=C:\Users\ADMIN\OneDrive
+CURSOR_LAYOUT=unifiedAgent
+VBOX_MSI_INSTALL_PATH=C:\Program Files\Oracle\VirtualBox\
+CommonProgramFiles=C:\Program Files\Common Files
+CURSOR_AGENT=1
+PROCESSOR_LEVEL=6
+ProgramData=C:\ProgramData
+HOMEPATH=\Users\ADMIN
+FORCE_COLOR=0
+VSCODE_HANDLES_UNCAUGHT_ERRORS=true
+EFC_19408_3789132940=1
+CommonProgramW6432=C:\Program Files\Common Files
+_ZO_DOCTOR=0
+TMP=C:\Users\ADMIN\AppData\Local\Temp
+CURSOR_WORKSPACE_LABEL=project 1
+EFC_19408_2775293581=1
+PROCESSOR_ARCHITECTURE=AMD64
+SESSIONNAME=Console
+AGENT_TRANSCRIPTS=C:\Users\ADMIN\.cursor\projects\c-Users-ADMIN-Documents-project-1\agent-transcripts
+DriverData=C:\Windows\System32\Drivers\DriverData
+HOMEDRIVE=C:
+VSCODE_PID=5776
+VSCODE_CRASH_REPORTER_PROCESS_TYPE=extensionHost
+GIT_TRACE2_PARENT_SID=25666d9a-697b-428b-be6b-a53a2096683d
+SystemDrive=C:
+NUMBER_OF_PROCESSORS=12
+OS=Windows_NT
+ProgramFiles=C:\Program Files
+ComSpec=C:\WINDOWS\system32\cmd.exe
+EFC_19408_1592913036=1
+USERDOMAIN_ROAMINGPROFILE=DESKTOP-N3HIQUE
+PATHEXT=.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC;.PY;.PYW;.CPL
+VSCODE_IPC_HOOK=\\.\pipe\465061b3-3.9.16-main-sock
+ALLUSERSPROFILE=C:\ProgramData
+PSModulePath=C:\Users\ADMIN\Documents\WindowsPowerShell\Modules;C:\Program Files\WindowsPowerShell\Modules;C:\WINDOWS\system32\WindowsPowerShell\v1.0\Modules
+APPDATA=C:\Users\ADMIN\AppData\Roaming
+USERDOMAIN=DESKTOP-N3HIQUE
+COMPUTERNAME=DESKTOP-N3HIQUE
+LOCALAPPDATA=C:\Users\ADMIN\AppData\Local
+VSCODE_NLS_CONFIG={"userLocale":"en-us","osLocale":"en-us","resolvedLanguage":"en","defaultMessagesFile":"C:\\Users\\ADMIN\\AppData\\Local\\Programs\\cursor\\resources\\app\\out\\nls.messages.json","locale":"en-us","availableLanguages":{}}
+CURSOR_RIPGREP_PATH=c:\Users\ADMIN\AppData\Local\Programs\cursor\resources\app\node_modules\@vscode\ripgrep\bin\rg.exe
+CHROME_CRASHPAD_PIPE_NAME=\\.\pipe\crashpad_5776_NJMJCNORQVEXXMVC
+CommonProgramFiles(x86)=C:\Program Files (x86)\Common Files
+VSCODE_CODE_CACHE_PATH=C:\Users\ADMIN\AppData\Roaming\Cursor\CachedData\042b3c1a4c53f2c3808067f519fbfc67b72cad80
+PUBLIC=C:\Users\Public
+TERM=dumb
+
+
+------------
+Diagnostic: File system
+Skipped: False
+Success: True
+Exception: None
+Log:
+Temporary directory is 'C:\Users\ADMIN\AppData\Local\Temp\'...
+Checking basic file I/O...
+Writing to temporary file 'C:\Users\ADMIN\AppData\Local\Temp\f0874f7cac0cec92437f1971'... OK
+Reading from temporary file 'C:\Users\ADMIN\AppData\Local\Temp\f0874f7cac0cec92437f1971'... OK
+Deleting temporary file 'C:\Users\ADMIN\AppData\Local\Temp\f0874f7cac0cec92437f1971'... OK
+Testing IFileSystem instance...
+UserHomePath: C:\Users\ADMIN
+UserDataDirectoryPath: C:\Users\ADMIN\.gcm
+GetCurrentDirectory(): C:\Users\ADMIN\Documents\project 1\bluetooth_messenger
+
+------------
+Diagnostic: Networking
+Skipped: False
+Success: False
+Exception:
+System.Net.Http.HttpRequestException: An error occurred while sending the request. ---> System.Net.WebException: The remote name could not be resolved: 'example.com'
+   at System.Net.HttpWebRequest.EndGetResponse(IAsyncResult asyncResult)
+   at System.Net.Http.HttpClientHandler.GetResponseCallback(IAsyncResult ar)
+   --- End of inner exception stack trace ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at GitCredentialManager.Diagnostics.NetworkingDiagnostic.<RunInternalAsync>d__4.MoveNext()
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at GitCredentialManager.Diagnostics.Diagnostic.<RunAsync>d__6.MoveNext()
+Log:
+Checking networking and HTTP stack...
+Creating HTTP client... OK
+IsNetworkAvailable: True
+Sending HEAD request to http://example.com... warning: HEAD request failed
+Sending HEAD request to http://httpforever.com... OK
+Sending HEAD request to https://example.com...

@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../models/peer.dart';
+import 'ble_advertiser.dart';
 
 enum BluetoothConnectionState { idle, scanning, connecting, connected, error }
 
@@ -38,6 +39,7 @@ class BluetoothService {
     }
   }
 
+  final _advertiser = BleAdvertiser();
   final _peersController = StreamController<List<Peer>>.broadcast();
   final _incomingController = StreamController<IncomingPacket>.broadcast();
   final _connectionController =
@@ -61,12 +63,33 @@ class BluetoothService {
 
   bool get isAdapterOn => _adapterOn;
   bool get isBleSupported => _isBleSupported;
+  bool get isAdvertising => _advertiser.isRunning;
 
-  /// Name other devices should look for in scan results.
   String get advertiseName {
     final trimmed = _displayName.trim().isEmpty ? 'User' : _displayName.trim();
-    final short = trimmed.length > 10 ? trimmed.substring(0, 10) : trimmed;
+    final short = trimmed.length > 8 ? trimmed.substring(0, 8) : trimmed;
     return '${AppConstants.deviceNamePrefix}$short';
+  }
+
+  bool _matchesPrefix(String name) {
+    return name.startsWith(AppConstants.deviceNamePrefix) ||
+        name.startsWith(AppConstants.legacyDeviceNamePrefix);
+  }
+
+  String _nameWithoutPrefix(String name) {
+    if (name.startsWith(AppConstants.deviceNamePrefix)) {
+      return name.replaceFirst(AppConstants.deviceNamePrefix, '');
+    }
+    if (name.startsWith(AppConstants.legacyDeviceNamePrefix)) {
+      return name.replaceFirst(AppConstants.legacyDeviceNamePrefix, '');
+    }
+    return name;
+  }
+
+  bool _hasOurService(ScanResult result) {
+    final target = AppConstants.bleServiceUuid.toLowerCase();
+    return result.advertisementData.serviceUuids
+        .any((uuid) => uuid.toString().toLowerCase() == target);
   }
 
   void _initBleListeners() {
@@ -84,6 +107,7 @@ class BluetoothService {
     _displayName = displayName;
     await _requestPermissions();
     await _ensureAdapterOn();
+    await _advertiser.start(displayName);
   }
 
   Future<void> _requestPermissions() async {
@@ -94,6 +118,7 @@ class BluetoothService {
         Permission.bluetoothConnect,
         Permission.bluetoothAdvertise,
         Permission.locationWhenInUse,
+        Permission.location,
       ].request();
     }
   }
@@ -122,6 +147,9 @@ class BluetoothService {
     }
 
     await _ensureAdapterOn();
+    if (!_advertiser.isRunning) {
+      await _advertiser.start(_displayName);
+    }
 
     if (_scanning) return;
     if (!_adapterOn) {
@@ -136,20 +164,27 @@ class BluetoothService {
     _connectionController.add(BluetoothConnectionState.scanning);
 
     try {
-      // Scan all devices — filter by BTMsg_ name in results.
-      // Both PCs must set Bluetooth device name to BTMsg_YourName in Settings.
       await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 15),
+        timeout: const Duration(seconds: 20),
         androidScanMode: AndroidScanMode.lowLatency,
+        withServices: [Guid(AppConstants.bleServiceUuid)],
       );
     } catch (e) {
-      _scanning = false;
-      _connectionController.add(BluetoothConnectionState.error);
-      debugPrint('BLE scan failed: $e');
-      return;
+      // Fallback: scan all devices if service-filtered scan fails
+      try {
+        await FlutterBluePlus.startScan(
+          timeout: const Duration(seconds: 20),
+          androidScanMode: AndroidScanMode.lowLatency,
+        );
+      } catch (e2) {
+        _scanning = false;
+        _connectionController.add(BluetoothConnectionState.error);
+        debugPrint('BLE scan failed: $e2');
+        return;
+      }
     }
 
-    Future.delayed(const Duration(seconds: 15), () {
+    Future.delayed(const Duration(seconds: 20), () {
       if (_scanning) stopDiscovery();
     });
   }
@@ -170,12 +205,15 @@ class BluetoothService {
       final platformName = result.device.platformName;
       final name = advName.isNotEmpty ? advName : platformName;
 
-      if (!name.startsWith(AppConstants.deviceNamePrefix)) continue;
+      final isOurs = _matchesPrefix(name) || _hasOurService(result);
+      if (!isOurs) continue;
 
       final deviceId = result.device.remoteId.str;
+      final peerName = name.isNotEmpty ? _nameWithoutPrefix(name) : deviceId;
+
       final peer = Peer(
         id: deviceId,
-        name: name.replaceFirst(AppConstants.deviceNamePrefix, ''),
+        name: peerName,
         deviceId: deviceId,
         rssi: result.rssi,
       );
@@ -279,6 +317,7 @@ class BluetoothService {
 
   Future<void> dispose() async {
     await stopDiscovery();
+    await _advertiser.stop();
     for (final sub in _notifySubs.values) {
       await sub.cancel();
     }

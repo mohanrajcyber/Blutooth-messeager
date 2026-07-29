@@ -19,5 +19,6 @@ abstract final class AppConstants {
   static const bleTxCharUuid = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
   static const bleRxCharUuid = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
   static const maxBlePayload = 512;
-  static const deviceNamePrefix = 'BTMsg_';
+  static const deviceNamePrefix = 'BTMsg-';
+  static const legacyDeviceNamePrefix = 'BTMsg_';
 }

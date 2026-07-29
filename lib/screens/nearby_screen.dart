@@ -110,7 +110,9 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Set PC Bluetooth name to: ${bluetooth.advertiseName}',
+                          bluetooth.isAdvertising
+                              ? 'Visible as: ${bluetooth.advertiseName}'
+                              : 'Advertising starting… keep Bluetooth ON',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 13,
@@ -119,7 +121,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          'Settings → Bluetooth → Rename this PC',
+                          'Open this screen on both phone and PC at the same time',
                           style: TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
