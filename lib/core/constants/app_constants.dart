@@ -11,6 +11,14 @@ abstract final class AppColors {
   static const subtitle = Color(0xFF667781);
   static const tickBlue = Color(0xFF53BDEB);
   static const divider = Color(0xFFE9EDEF);
+  static const darkBackground = Color(0xFF0B141A);
+  static const darkHeader = Color(0xFF1F2C34);
+  static const darkSurface = Color(0xFF111B21);
+  static const darkInput = Color(0xFF1F2C34);
+  static const darkSentBubble = Color(0xFF005C4B);
+  static const darkReceivedBubble = Color(0xFF1F2C34);
+  static const darkSubtitle = Color(0xFF8696A0);
+  static const darkDivider = Color(0xFF222D34);
 }
 
 abstract final class AppConstants {

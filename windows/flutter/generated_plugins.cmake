@@ -4,6 +4,8 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   ble_peripheral_plus
+  emoji_picker_flutter
+  file_selector_windows
   flutter_blue_plus_winrt
   permission_handler_windows
 )

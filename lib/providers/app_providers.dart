@@ -47,8 +47,6 @@ final messageServiceProvider = FutureProvider<MessageService>((ref) async {
   return service;
 });
 
-final displayNameProvider = StateProvider<String>((ref) => 'User');
-
 final conversationsProvider = FutureProvider<List<Conversation>>((ref) async {
   ref.watch(messageRefreshProvider);
   return ref.watch(conversationRepositoryProvider).getAll();

@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
 import '../providers/app_providers.dart';
+import '../providers/connection_providers.dart';
+import '../providers/settings_providers.dart';
 import 'chat_screen.dart';
 
 class ConnectByCodeScreen extends ConsumerStatefulWidget {
@@ -47,6 +49,12 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
     _navigating = true;
     final peerId = code.localPeerId;
     final peerName = code.connectedPeerName ?? code.connectedPeerCode ?? 'Partner';
+
+    ref.read(activeSessionProvider.notifier).state = ActiveSession(
+      peerId: peerId,
+      peerName: peerName,
+      viaCode: true,
+    );
 
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute(

@@ -34,6 +34,7 @@ class CodePairingService {
   Socket? _socket;
   Timer? _broadcastTimer;
   Timer? _searchProbeTimer;
+  Timer? _keepaliveTimer;
 
   String? _searchingForCode;
   Completer<CodePeerFound?>? _searchCompleter;
@@ -359,6 +360,7 @@ class CodePairingService {
       _connectedPeerCode = found.code;
       _connectedPeerName = found.name;
       _socket!.listen(_onSocketData);
+      _startKeepalive();
       _statusController.add('Connected to ${found.name}');
 
       await _sendHello();
@@ -383,6 +385,7 @@ class CodePairingService {
     _socket = client;
     _readBuffer = '';
     _socket!.listen(_onSocketData);
+    _startKeepalive();
     _statusController.add('Partner connected');
     unawaited(_sendHello());
   }
@@ -398,10 +401,25 @@ class CodePairingService {
     }
   }
 
+  void _startKeepalive() {
+    _keepaliveTimer?.cancel();
+    _keepaliveTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      if (_socket != null) {
+        unawaited(send({'type': 'ping'}));
+      }
+    });
+  }
+
   void _handleLine(String line) {
     try {
       final payload = jsonDecode(line) as Map<String, dynamic>;
-      if (payload['type'] == 'hello') {
+      final type = payload['type'] as String?;
+      if (type == 'ping') {
+        unawaited(send({'type': 'pong'}));
+        return;
+      }
+      if (type == 'pong') return;
+      if (type == 'hello') {
         _connectedPeerCode = payload['code'] as String?;
         _connectedPeerName = payload['name'] as String?;
         _statusController.add('Paired with $_connectedPeerName');
@@ -432,6 +450,7 @@ class CodePairingService {
   Future<void> dispose() async {
     _broadcastTimer?.cancel();
     _searchProbeTimer?.cancel();
+    _keepaliveTimer?.cancel();
     await _socket?.close();
     _udp?.close();
     await _discoveryServer?.close();

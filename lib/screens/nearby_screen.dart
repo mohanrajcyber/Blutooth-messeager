@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_constants.dart';
 import '../models/peer.dart';
 import '../providers/app_providers.dart';
+import '../providers/connection_providers.dart';
 import '../services/bluetooth/bluetooth_service.dart';
 import 'chat_screen.dart';
 import 'connect_by_code_screen.dart';
@@ -72,6 +73,12 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
           content: Text('Paired with ${peer.name}'),
           backgroundColor: AppColors.accent,
         ),
+      );
+
+      ref.read(activeSessionProvider.notifier).state = ActiveSession(
+        peerId: peer.id,
+        peerName: peer.name,
+        viaCode: false,
       );
 
       await Navigator.of(context).pushReplacement(

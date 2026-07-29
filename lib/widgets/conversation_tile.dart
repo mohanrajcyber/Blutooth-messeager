@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/theme/app_theme.dart';
 import '../models/conversation.dart';
 
 class ConversationTile extends StatelessWidget {
@@ -9,31 +10,55 @@ class ConversationTile extends StatelessWidget {
     super.key,
     required this.conversation,
     required this.onTap,
+    this.isOnline = false,
   });
 
   final Conversation conversation;
   final VoidCallback onTap;
+  final bool isOnline;
 
   @override
   Widget build(BuildContext context) {
     final time = DateFormat('HH:mm').format(conversation.updatedAt);
+    final subtitle = chatTheme(context).subtitle;
 
     return ListTile(
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: CircleAvatar(
-        radius: 28,
-        backgroundColor: AppColors.primary.withValues(alpha: 0.15),
-        child: Text(
-          conversation.peerName.isNotEmpty
-              ? conversation.peerName[0].toUpperCase()
-              : '?',
-          style: const TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      leading: Stack(
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+            child: Text(
+              conversation.peerName.isNotEmpty
+                  ? conversation.peerName[0].toUpperCase()
+                  : '?',
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            ),
           ),
-        ),
+          if (isOnline)
+            Positioned(
+              right: 2,
+              bottom: 2,
+              child: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: AppColors.accent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       title: Text(
         conversation.peerName,
@@ -43,7 +68,7 @@ class ConversationTile extends StatelessWidget {
         conversation.lastMessage ?? 'Tap to start chatting',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: AppColors.subtitle),
+        style: TextStyle(color: subtitle),
       ),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -55,7 +80,7 @@ class ConversationTile extends StatelessWidget {
               fontSize: 12,
               color: conversation.unreadCount > 0
                   ? AppColors.accent
-                  : AppColors.subtitle,
+                  : subtitle,
             ),
           ),
           if (conversation.unreadCount > 0) ...[
