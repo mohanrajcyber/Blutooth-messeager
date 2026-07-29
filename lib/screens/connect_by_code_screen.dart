@@ -8,6 +8,7 @@ import '../core/constants/app_constants.dart';
 import '../providers/app_providers.dart';
 import '../providers/connection_providers.dart';
 import '../providers/settings_providers.dart';
+import '../services/security/encryption_service.dart';
 import 'chat_screen.dart';
 
 class ConnectByCodeScreen extends ConsumerStatefulWidget {
@@ -72,6 +73,8 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
     if (partner.isEmpty) return;
 
     final code = ref.read(codePairingServiceProvider);
+    final encryption = ref.read(encryptionServiceProvider);
+    code.setOutgoingSessionKey(encryption.generateSessionKey());
     final ok = await code.connectToCode(partner);
     if (!mounted) return;
 

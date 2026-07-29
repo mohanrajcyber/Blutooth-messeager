@@ -7,12 +7,17 @@ import '../core/theme/app_theme.dart';
 import '../providers/app_providers.dart';
 import '../providers/connection_providers.dart';
 import '../providers/settings_providers.dart';
+import '../services/notifications/notification_service.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/conversation_tile.dart';
 import 'chat_screen.dart';
 import 'connect_by_code_screen.dart';
+import 'contacts_screen.dart';
+import 'group_chat_screen.dart';
 import 'nearby_screen.dart';
+import 'qr_connect_screen.dart';
 import 'settings_screen.dart';
+import 'status_screen.dart';
 
 class ChatsScreen extends ConsumerStatefulWidget {
   const ChatsScreen({super.key});
@@ -30,6 +35,7 @@ class _ChatsScreenState extends ConsumerState<ChatsScreen> {
 
   Future<void> _bootstrap() async {
     await ref.read(settingsInitProvider.future);
+    await NotificationService.instance.init();
     final name = ref.read(displayNameProvider);
     final bluetooth = ref.read(bluetoothServiceProvider);
     await bluetooth.initialize(displayName: name);
@@ -70,11 +76,49 @@ class _ChatsScreenState extends ConsumerState<ChatsScreen> {
               onTap: () {
                 Navigator.pop(ctx);
                 Navigator.of(context).push(
-                  PageRouteBuilder(
-                    pageBuilder: (_, __, ___) => const ConnectByCodeScreen(),
-                    transitionsBuilder: (_, anim, __, child) =>
-                        FadeTransition(opacity: anim, child: child),
+                  MaterialPageRoute(
+                    builder: (_) => const ConnectByCodeScreen(),
                   ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.qr_code_scanner),
+              title: const Text('QR scan connect'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const QrConnectScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.group),
+              title: const Text('Group chat'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const GroupChatScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.contacts),
+              title: const Text('Saved contacts'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ContactsScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.circle),
+              title: const Text('Status (24h)'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const StatusScreen()),
                 );
               },
             ),
@@ -89,6 +133,14 @@ class _ChatsScreenState extends ConsumerState<ChatsScreen> {
       case 'settings':
         await Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const SettingsScreen()),
+        );
+      case 'contacts':
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ContactsScreen()),
+        );
+      case 'status':
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const StatusScreen()),
         );
       case 'name':
         await _showNameDialog();
@@ -159,6 +211,8 @@ class _ChatsScreenState extends ConsumerState<ChatsScreen> {
             onSelected: _showMainMenu,
             itemBuilder: (context) => const [
               PopupMenuItem(value: 'name', child: Text('Display name')),
+              PopupMenuItem(value: 'contacts', child: Text('Contacts')),
+              PopupMenuItem(value: 'status', child: Text('Status')),
               PopupMenuItem(value: 'settings', child: Text('Settings')),
               PopupMenuItem(value: 'exit', child: Text('Exit app')),
             ],

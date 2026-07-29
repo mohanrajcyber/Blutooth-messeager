@@ -35,6 +35,13 @@ class CodePairingService {
   Timer? _broadcastTimer;
   Timer? _searchProbeTimer;
   Timer? _keepaliveTimer;
+  Timer? _reconnectTimer;
+
+  String? _sessionKey;
+  String? _outgoingSessionKey;
+  InternetAddress? _lastAddress;
+  int? _lastPort;
+  String? _lastPartnerCode;
 
   String? _searchingForCode;
   Completer<CodePeerFound?>? _searchCompleter;
@@ -53,6 +60,9 @@ class CodePairingService {
   String? get connectedPeerName => _connectedPeerName;
   bool get isConnected => _socket != null;
   bool get isPaired => _connectedPeerCode != null;
+  String? get sessionKey => _sessionKey;
+
+  void setOutgoingSessionKey(String key) => _outgoingSessionKey = key;
 
   Future<void> start({required String displayName}) async {
     if (_myCode.isNotEmpty) return;
@@ -359,7 +369,14 @@ class CodePairingService {
       _readBuffer = '';
       _connectedPeerCode = found.code;
       _connectedPeerName = found.name;
-      _socket!.listen(_onSocketData);
+      _lastAddress = found.address;
+      _lastPort = found.port;
+      _lastPartnerCode = found.code;
+      _socket!.listen(
+        _onSocketData,
+        onDone: _scheduleReconnect,
+        onError: (_) => _scheduleReconnect(),
+      );
       _startKeepalive();
       _statusController.add('Connected to ${found.name}');
 
@@ -377,6 +394,31 @@ class CodePairingService {
       'type': 'hello',
       'code': _myCode,
       'name': _myName,
+      if (_outgoingSessionKey != null) 'session_key': _outgoingSessionKey,
+    });
+  }
+
+  void _scheduleReconnect() {
+    if (_lastAddress == null || _lastPort == null) return;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(const Duration(seconds: 5), () async {
+      if (_socket != null) return;
+      try {
+        _socket = await Socket.connect(
+          _lastAddress!,
+          _lastPort!,
+          timeout: const Duration(seconds: 8),
+        );
+        _readBuffer = '';
+        _socket!.listen(
+          _onSocketData,
+          onDone: _scheduleReconnect,
+          onError: (_) => _scheduleReconnect(),
+        );
+        _startKeepalive();
+        await _sendHello();
+        _statusController.add('Reconnected');
+      } catch (_) {}
     });
   }
 
@@ -422,6 +464,7 @@ class CodePairingService {
       if (type == 'hello') {
         _connectedPeerCode = payload['code'] as String?;
         _connectedPeerName = payload['name'] as String?;
+        _sessionKey = payload['session_key'] as String? ?? _sessionKey;
         _statusController.add('Paired with $_connectedPeerName');
         _pairedController.add(null);
       }
@@ -451,6 +494,7 @@ class CodePairingService {
     _broadcastTimer?.cancel();
     _searchProbeTimer?.cancel();
     _keepaliveTimer?.cancel();
+    _reconnectTimer?.cancel();
     await _socket?.close();
     _udp?.close();
     await _discoveryServer?.close();

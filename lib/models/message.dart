@@ -1,6 +1,6 @@
 enum MessageStatus { pending, sent, delivered, read, failed }
 
-enum MessageType { text, image, system }
+enum MessageType { text, image, system, voice, video, document }
 
 class Message {
   const Message({
@@ -13,6 +13,10 @@ class Message {
     this.type = MessageType.text,
     this.sentAt,
     this.deliveredAt,
+    this.replyToId,
+    this.isDeleted = false,
+    this.expiresAt,
+    this.forwardedFrom,
   });
 
   final String id;
@@ -24,6 +28,13 @@ class Message {
   final DateTime createdAt;
   final DateTime? sentAt;
   final DateTime? deliveredAt;
+  final String? replyToId;
+  final bool isDeleted;
+  final DateTime? expiresAt;
+  final String? forwardedFrom;
+
+  bool get isExpired =>
+      expiresAt != null && DateTime.now().isAfter(expiresAt!);
 
   Message copyWith({
     String? id,
@@ -35,6 +46,10 @@ class Message {
     DateTime? createdAt,
     DateTime? sentAt,
     DateTime? deliveredAt,
+    String? replyToId,
+    bool? isDeleted,
+    DateTime? expiresAt,
+    String? forwardedFrom,
   }) {
     return Message(
       id: id ?? this.id,
@@ -46,6 +61,10 @@ class Message {
       createdAt: createdAt ?? this.createdAt,
       sentAt: sentAt ?? this.sentAt,
       deliveredAt: deliveredAt ?? this.deliveredAt,
+      replyToId: replyToId ?? this.replyToId,
+      isDeleted: isDeleted ?? this.isDeleted,
+      expiresAt: expiresAt ?? this.expiresAt,
+      forwardedFrom: forwardedFrom ?? this.forwardedFrom,
     );
   }
 
@@ -60,6 +79,10 @@ class Message {
       'created_at': createdAt.millisecondsSinceEpoch,
       'sent_at': sentAt?.millisecondsSinceEpoch,
       'delivered_at': deliveredAt?.millisecondsSinceEpoch,
+      'reply_to_id': replyToId,
+      'is_deleted': isDeleted ? 1 : 0,
+      'expires_at': expiresAt?.millisecondsSinceEpoch,
+      'forwarded_from': forwardedFrom,
     };
   }
 
@@ -78,6 +101,12 @@ class Message {
       deliveredAt: map['delivered_at'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['delivered_at'] as int)
           : null,
+      replyToId: map['reply_to_id'] as String?,
+      isDeleted: (map['is_deleted'] as int? ?? 0) == 1,
+      expiresAt: map['expires_at'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['expires_at'] as int)
+          : null,
+      forwardedFrom: map['forwarded_from'] as String?,
     );
   }
 }

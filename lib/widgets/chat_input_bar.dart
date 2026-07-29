@@ -11,11 +11,21 @@ class ChatInputBar extends StatefulWidget {
     super.key,
     required this.onSend,
     required this.onImagePicked,
+    required this.onVideoPicked,
+    required this.onDocumentPicked,
+    required this.onVoiceStart,
+    required this.onVoiceStop,
+    this.onTyping,
     this.enabled = true,
   });
 
   final ValueChanged<String> onSend;
   final Future<void> Function(ImageSource source) onImagePicked;
+  final VoidCallback onVideoPicked;
+  final VoidCallback onDocumentPicked;
+  final VoidCallback onVoiceStart;
+  final Future<void> Function() onVoiceStop;
+  final VoidCallback? onTyping;
   final bool enabled;
 
   @override
@@ -26,6 +36,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   bool _showEmoji = false;
+  bool _recording = false;
 
   @override
   void dispose() {
@@ -58,36 +69,51 @@ class _ChatInputBarState extends State<ChatInputBar> {
     final selection = _controller.selection;
     final start = selection.start < 0 ? text.length : selection.start;
     final end = selection.end < 0 ? text.length : selection.end;
-    final newText = text.replaceRange(start, end, emoji.emoji);
     _controller
-      ..text = newText
-      ..selection = TextSelection.collapsed(
-        offset: start + emoji.emoji.length,
-      );
+      ..text = text.replaceRange(start, end, emoji.emoji)
+      ..selection = TextSelection.collapsed(offset: start + emoji.emoji.length);
+    widget.onTyping?.call();
   }
 
   Future<void> _showAttachSheet() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final action = await showModalBottomSheet<String>(
       context: context,
       builder: (ctx) => SafeArea(
         child: Wrap(
           children: [
             ListTile(
               leading: const Icon(Icons.photo_library),
-              title: const Text('Gallery'),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              title: const Text('Gallery photo'),
+              onTap: () => Navigator.pop(ctx, 'gallery'),
             ),
             ListTile(
               leading: const Icon(Icons.photo_camera),
               title: const Text('Camera'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              onTap: () => Navigator.pop(ctx, 'camera'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.videocam),
+              title: const Text('Video'),
+              onTap: () => Navigator.pop(ctx, 'video'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.insert_drive_file),
+              title: const Text('Document'),
+              onTap: () => Navigator.pop(ctx, 'doc'),
             ),
           ],
         ),
       ),
     );
-    if (source != null) {
-      await widget.onImagePicked(source);
+    switch (action) {
+      case 'gallery':
+        await widget.onImagePicked(ImageSource.gallery);
+      case 'camera':
+        await widget.onImagePicked(ImageSource.camera);
+      case 'video':
+        widget.onVideoPicked();
+      case 'doc':
+        widget.onDocumentPicked();
     }
   }
 
@@ -119,35 +145,47 @@ class _ChatInputBarState extends State<ChatInputBar> {
               ),
               IconButton(
                 onPressed: widget.enabled ? _showAttachSheet : null,
-                icon: Icon(
-                  Icons.attach_file,
-                  color: chatTheme(context).subtitle,
-                ),
+                icon: Icon(Icons.attach_file, color: chatTheme(context).subtitle),
               ),
               Expanded(
                 child: TextField(
                   controller: _controller,
                   focusNode: _focusNode,
                   enabled: widget.enabled,
-                  textInputAction: TextInputAction.newline,
+                  onChanged: (_) => widget.onTyping?.call(),
                   onSubmitted: (_) => _submit(),
                   onTap: () {
                     if (_showEmoji) setState(() => _showEmoji = false);
                   },
-                  decoration: const InputDecoration(
-                    hintText: 'Message',
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
+                  decoration: const InputDecoration(hintText: 'Message'),
                   minLines: 1,
                   maxLines: 5,
                 ),
               ),
-              const SizedBox(width: 4),
+              GestureDetector(
+                onLongPressStart: widget.enabled
+                    ? (_) {
+                        setState(() => _recording = true);
+                        widget.onVoiceStart();
+                      }
+                    : null,
+                onLongPressEnd: widget.enabled
+                    ? (_) async {
+                        setState(() => _recording = false);
+                        await widget.onVoiceStop();
+                      }
+                    : null,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(
+                    _recording ? Icons.mic : Icons.mic_none,
+                    color: _recording ? Colors.red : chatTheme(context).subtitle,
+                  ),
+                ),
+              ),
               Material(
                 color: widget.enabled ? AppColors.accent : Colors.grey,
                 shape: const CircleBorder(),
-                elevation: 2,
                 child: InkWell(
                   onTap: widget.enabled ? _submit : null,
                   customBorder: const CircleBorder(),
@@ -164,11 +202,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
           SizedBox(
             height: 260,
             child: EmojiPicker(
-              onEmojiSelected: (category, emoji) => _onEmojiSelected(emoji),
-              config: Config(
-                height: 260,
-                checkPlatformCompatibility: !kIsWeb,
-              ),
+              onEmojiSelected: (_, emoji) => _onEmojiSelected(emoji),
+              config: Config(height: 260, checkPlatformCompatibility: !kIsWeb),
             ),
           ),
       ],

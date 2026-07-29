@@ -7,6 +7,9 @@ class Conversation {
     this.lastMessage,
     this.unreadCount = 0,
     this.isConnected = false,
+    this.isGroup = false,
+    this.wallpaper,
+    this.bubbleColor,
   });
 
   final String id;
@@ -15,6 +18,9 @@ class Conversation {
   final String? lastMessage;
   final int unreadCount;
   final bool isConnected;
+  final bool isGroup;
+  final String? wallpaper;
+  final String? bubbleColor;
   final DateTime updatedAt;
 
   Conversation copyWith({
@@ -24,6 +30,9 @@ class Conversation {
     String? lastMessage,
     int? unreadCount,
     bool? isConnected,
+    bool? isGroup,
+    String? wallpaper,
+    String? bubbleColor,
     DateTime? updatedAt,
   }) {
     return Conversation(
@@ -33,6 +42,9 @@ class Conversation {
       lastMessage: lastMessage ?? this.lastMessage,
       unreadCount: unreadCount ?? this.unreadCount,
       isConnected: isConnected ?? this.isConnected,
+      isGroup: isGroup ?? this.isGroup,
+      wallpaper: wallpaper ?? this.wallpaper,
+      bubbleColor: bubbleColor ?? this.bubbleColor,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -45,6 +57,9 @@ class Conversation {
       'last_message': lastMessage,
       'unread_count': unreadCount,
       'updated_at': updatedAt.millisecondsSinceEpoch,
+      'is_group': isGroup ? 1 : 0,
+      'wallpaper': wallpaper,
+      'bubble_color': bubbleColor,
     };
   }
 
@@ -56,6 +71,9 @@ class Conversation {
       lastMessage: map['last_message'] as String?,
       unreadCount: map['unread_count'] as int? ?? 0,
       updatedAt: DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int),
+      isGroup: (map['is_group'] as int? ?? 0) == 1,
+      wallpaper: map['wallpaper'] as String?,
+      bubbleColor: map['bubble_color'] as String?,
     );
   }
 }

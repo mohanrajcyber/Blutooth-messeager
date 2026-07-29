@@ -7,7 +7,10 @@ import '../models/message.dart';
 import '../models/peer.dart';
 import '../services/bluetooth/bluetooth_service.dart';
 import '../services/local/code_pairing_service.dart';
+import '../services/local/group_chat_service.dart';
 import '../services/messaging/message_service.dart';
+import '../services/security/encryption_service.dart';
+import 'settings_providers.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   return AppDatabase.instance;
@@ -19,6 +22,10 @@ final conversationRepositoryProvider = Provider<ConversationRepository>((ref) {
 
 final messageRepositoryProvider = Provider<MessageRepository>((ref) {
   return MessageRepository(ref.watch(appDatabaseProvider));
+});
+
+final encryptionServiceProvider = Provider<EncryptionService>((ref) {
+  return EncryptionService();
 });
 
 final bluetoothServiceProvider = Provider<BluetoothService>((ref) {
@@ -33,15 +40,33 @@ final codePairingServiceProvider = Provider<CodePairingService>((ref) {
   return service;
 });
 
+final groupChatServiceProvider = Provider<GroupChatService>((ref) {
+  final service = GroupChatService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
 final messageServiceProvider = FutureProvider<MessageService>((ref) async {
   final db = ref.watch(appDatabaseProvider);
   await db.database;
 
+  final encryption = ref.watch(encryptionServiceProvider);
+  final codePairing = ref.watch(codePairingServiceProvider);
+
+  codePairing.pairedStream.listen((_) {
+    final key = codePairing.sessionKey;
+    if (key != null) encryption.setSessionKey(key);
+  });
+
   final service = MessageService(
     bluetooth: ref.watch(bluetoothServiceProvider),
-    codePairing: ref.watch(codePairingServiceProvider),
+    codePairing: codePairing,
+    groupChat: ref.watch(groupChatServiceProvider),
     messages: ref.watch(messageRepositoryProvider),
     conversations: ref.watch(conversationRepositoryProvider),
+    settings: ref.watch(settingsServiceProvider),
+    encryption: encryption,
+    db: db,
   );
   ref.onDispose(service.dispose);
   return service;
@@ -66,4 +91,9 @@ final nearbyPeersProvider = StreamProvider<List<Peer>>((ref) {
 
 final connectionStateProvider = StreamProvider<BluetoothConnectionState>((ref) {
   return ref.watch(bluetoothServiceProvider).connectionStream;
+});
+
+final typingPeerProvider = StreamProvider<String>((ref) async* {
+  final service = await ref.watch(messageServiceProvider.future);
+  yield* service.typingStream;
 });
