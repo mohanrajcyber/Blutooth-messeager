@@ -1,7 +1,7 @@
 name: bluetooth_messenger
 description: Offline peer-to-peer messaging over Bluetooth with WhatsApp-style UI.
 publish_to: 'none'
-version: 0.3.0+6
+version: 0.3.1+7
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
@@ -27,7 +27,6 @@ dependencies:
   image_picker: ^1.1.2
   encrypt: ^5.0.3
   crypto: ^3.0.6
-  flutter_local_notifications: ^19.0.0
   record: ^6.0.0
   audioplayers: ^6.4.0
   file_picker: ^8.1.7
