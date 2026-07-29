@@ -1,17 +1,53 @@
-# After `gh auth login`, run from project root:
+# Publish BT Messenger to GitHub Releases (Android APK)
+# Run in PowerShell from project root after: gh auth login
 
-# 1. Create public repo (change username if needed)
-gh repo create bluetooth-messenger --public --source=. --remote=origin --description "Offline Bluetooth messenger with WhatsApp-style UI"
+$ErrorActionPreference = "Stop"
+$env:Path = "C:\Program Files\GitHub CLI;" + $env:Path
 
-# 2. Push code
+Write-Host "BT Messenger - GitHub Release" -ForegroundColor Green
+
+# Check GitHub login
+try {
+    gh auth status | Out-Null
+} catch {
+    Write-Host "`nGitHub login required. Run:" -ForegroundColor Yellow
+    Write-Host "  gh auth login" -ForegroundColor Cyan
+    Write-Host "Then run this script again.`n"
+    exit 1
+}
+
+Set-Location $PSScriptRoot\..
+
+$repoName = "bluetooth-messenger"
+$tag = "v0.1.0"
+
+# Create repo if missing
+$remotes = git remote 2>$null
+if (-not ($remotes -contains "origin")) {
+    Write-Host "Creating GitHub repo: $repoName" -ForegroundColor Cyan
+    gh repo create $repoName --public --source=. --remote=origin --description "Offline Bluetooth messenger with WhatsApp-style UI"
+} else {
+    Write-Host "Remote origin already exists" -ForegroundColor Gray
+}
+
+Write-Host "Pushing code..." -ForegroundColor Cyan
 git push -u origin main
 
-# 3. Create release tag (triggers APK build)
-git tag v0.1.0
-git push origin v0.1.0
+# Create tag if not exists
+$existingTag = git tag -l $tag
+if (-not $existingTag) {
+    Write-Host "Creating tag $tag..." -ForegroundColor Cyan
+    git tag $tag
+    git push origin $tag
+} else {
+    Write-Host "Tag $tag already exists. Push again to re-run build:" -ForegroundColor Yellow
+    Write-Host "  git push origin $tag" -ForegroundColor Cyan
+}
 
-# 4. Watch build
-gh run list --workflow=release-apk.yml
+Write-Host "`nGitHub Actions is building your APK..." -ForegroundColor Green
+Write-Host "Watch progress:" -ForegroundColor Gray
+Write-Host "  gh run list --workflow=release-apk.yml" -ForegroundColor Cyan
 
-# 5. When done, share this link:
-# https://github.com/YOUR_USERNAME/bluetooth-messenger/releases/latest
+$user = gh api user -q .login
+Write-Host "`nShare this install link when build finishes (~5 min):" -ForegroundColor Green
+Write-Host "  https://github.com/$user/$repoName/releases/latest" -ForegroundColor Yellow
