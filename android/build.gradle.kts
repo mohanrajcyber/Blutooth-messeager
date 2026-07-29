@@ -15,18 +15,14 @@ subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 
-    // Force Flutter plugins (file_picker etc.) to compile against API 36.
-    pluginManager.withPlugin("com.android.library") {
-        extensions.findByName("android")?.let { androidExt ->
-            androidExt.javaClass.methods
+    // Plugins like file_picker must compile against API 36 (no evaluationDependsOn — it breaks afterEvaluate).
+    afterEvaluate {
+        extensions.findByName("android")?.let { ext ->
+            ext.javaClass.methods
                 .find { it.name == "setCompileSdkVersion" && it.parameterTypes.size == 1 }
-                ?.invoke(androidExt, 36)
+                ?.invoke(ext, 36)
         }
     }
-}
-
-subprojects {
-    project.evaluationDependsOn(":app")
 }
 
 tasks.register<Delete>("clean") {

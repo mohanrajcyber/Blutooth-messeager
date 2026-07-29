@@ -1,7 +1,7 @@
 name: bluetooth_messenger
 description: Offline peer-to-peer messaging over Bluetooth with WhatsApp-style UI.
 publish_to: 'none'
-version: 0.3.4+10
+version: 0.3.5+11
 
 environment:
   sdk: '>=3.2.0 <4.0.0'
