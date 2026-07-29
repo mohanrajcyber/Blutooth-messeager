@@ -18,16 +18,18 @@ try {
 
 Set-Location $PSScriptRoot\..
 
-$repoName = "bluetooth-messenger"
+$repoName = "Blutooth-messeager"
+$remoteUrl = "https://github.com/mohanrajcyber/Blutooth-messeager.git"
 $tag = "v0.1.0"
 
 # Create repo if missing
 $remotes = git remote 2>$null
 if (-not ($remotes -contains "origin")) {
-    Write-Host "Creating GitHub repo: $repoName" -ForegroundColor Cyan
-    gh repo create $repoName --public --source=. --remote=origin --description "Offline Bluetooth messenger with WhatsApp-style UI"
+    Write-Host "Adding remote: $remoteUrl" -ForegroundColor Cyan
+    git remote add origin $remoteUrl
 } else {
-    Write-Host "Remote origin already exists" -ForegroundColor Gray
+    git remote set-url origin $remoteUrl
+    Write-Host "Remote set to: $remoteUrl" -ForegroundColor Gray
 }
 
 Write-Host "Pushing code..." -ForegroundColor Cyan

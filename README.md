@@ -21,7 +21,7 @@ Offline peer-to-peer messaging for mobile and desktop over Bluetooth, with a Wha
 No Play Store needed. Use GitHub Releases:
 
 1. Open the latest release page:
-   `https://github.com/YOUR_USERNAME/bluetooth-messenger/releases/latest`
+   `https://github.com/mohanrajcyber/Blutooth-messeager/releases/latest`
 2. Download **app-release.apk**
 3. Install on Android (enable "Install unknown apps" if asked)
 
