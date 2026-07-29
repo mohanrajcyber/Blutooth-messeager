@@ -6,6 +6,7 @@ import '../providers/app_providers.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/conversation_tile.dart';
 import 'chat_screen.dart';
+import 'connect_by_code_screen.dart';
 import 'nearby_screen.dart';
 
 class ChatsScreen extends ConsumerStatefulWidget {
@@ -122,8 +123,41 @@ class _ChatsScreenState extends ConsumerState<ChatsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const NearbyScreen()),
+          showModalBottomSheet<void>(
+            context: context,
+            builder: (ctx) => SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.bluetooth_searching),
+                    title: const Text('Bluetooth scan'),
+                    subtitle: const Text('List nearby devices & pair'),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const NearbyScreen()),
+                      );
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.qr_code),
+                    title: const Text('Connect by code'),
+                    subtitle: const Text(
+                      'No internet — WiFi/hotspot + code name (fallback)',
+                    ),
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const ConnectByCodeScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
           );
         },
         child: const Icon(Icons.chat),

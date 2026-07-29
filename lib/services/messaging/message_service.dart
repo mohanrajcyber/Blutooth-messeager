@@ -2,32 +2,41 @@ import 'dart:async';
 
 import 'package:uuid/uuid.dart';
 
-import '../../data/database/app_database.dart';
+import '../../core/constants/app_constants.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../models/message.dart';
 import '../bluetooth/bluetooth_service.dart';
+import '../local/code_pairing_service.dart';
 
-/// Coordinates local persistence, optimistic UI, and Bluetooth transport.
+/// Coordinates local persistence, optimistic UI, and transport (BT or code).
 class MessageService {
   MessageService({
     required BluetoothService bluetooth,
+    required CodePairingService codePairing,
     required MessageRepository messages,
     required ConversationRepository conversations,
   })  : _bluetooth = bluetooth,
+        _codePairing = codePairing,
         _messages = messages,
         _conversations = conversations {
-    _incomingSub = _bluetooth.incomingStream.listen(_onIncoming);
+    _incomingSub = _bluetooth.incomingStream.listen(_onBluetoothIncoming);
+    _codeSub = _codePairing.incomingStream.listen(_onCodeIncoming);
   }
 
   final BluetoothService _bluetooth;
+  final CodePairingService _codePairing;
   final MessageRepository _messages;
   final ConversationRepository _conversations;
   final _uuid = const Uuid();
 
   final _messageEvents = StreamController<Message>.broadcast();
   StreamSubscription<IncomingPacket>? _incomingSub;
+  StreamSubscription<Map<String, dynamic>>? _codeSub;
 
   Stream<Message> get messageEvents => _messageEvents.stream;
+
+  bool _isLocalPeer(String peerId) =>
+      peerId.startsWith(AppConstants.localPeerPrefix);
 
   Future<Message> sendText({
     required String peerId,
@@ -46,12 +55,8 @@ class MessageService {
       createdAt: now,
     );
 
-    // Optimistic: persist and emit immediately
     await _messages.save(message);
-    await _conversations.updatePreview(
-      conversation.id,
-      lastMessage: text,
-    );
+    await _conversations.updatePreview(conversation.id, lastMessage: text);
     _messageEvents.add(message);
 
     final payload = {
@@ -61,7 +66,10 @@ class MessageService {
       'timestamp': now.millisecondsSinceEpoch,
     };
 
-    final sent = await _bluetooth.send(peerId, payload);
+    final sent = _isLocalPeer(peerId)
+        ? await _codePairing.send(payload)
+        : await _bluetooth.send(peerId, payload);
+
     if (sent) {
       final updated = message.copyWith(
         status: MessageStatus.sent,
@@ -84,17 +92,40 @@ class MessageService {
     return message;
   }
 
-  Future<void> _onIncoming(IncomingPacket packet) async {
-    final type = packet.payload['type'] as String?;
+  Future<void> _onBluetoothIncoming(IncomingPacket packet) async {
+    await _handleIncoming(
+      peerId: packet.peerId,
+      payload: packet.payload,
+      ack: (id) => _bluetooth.send(packet.peerId, {
+        'type': 'ack',
+        'message_id': id,
+      }),
+    );
+  }
+
+  Future<void> _onCodeIncoming(Map<String, dynamic> payload) async {
+    if (payload['type'] != 'text') return;
+    await _handleIncoming(
+      peerId: _codePairing.localPeerId,
+      payload: payload,
+      ack: (_) async {},
+    );
+  }
+
+  Future<void> _handleIncoming({
+    required String peerId,
+    required Map<String, dynamic> payload,
+    required Future<void> Function(String id) ack,
+  }) async {
+    final type = payload['type'] as String?;
     if (type != 'text') return;
 
-    final peerId = packet.peerId;
-    final body = packet.payload['body'] as String? ?? '';
-    final messageId =
-        packet.payload['id'] as String? ?? _uuid.v4();
-    final timestamp = packet.payload['timestamp'] as int?;
+    final body = payload['body'] as String? ?? '';
+    final messageId = payload['id'] as String? ?? _uuid.v4();
+    final timestamp = payload['timestamp'] as int?;
 
-    final peerName = peerId.substring(0, 8);
+    final peerName = _codePairing.connectedPeerName ??
+        (peerId.length > 8 ? peerId.substring(0, 8) : peerId);
     final conversation = await _conversations.getOrCreate(peerId, peerName);
 
     final message = Message(
@@ -116,31 +147,12 @@ class MessageService {
       incrementUnread: true,
     );
     _messageEvents.add(message);
-
-    // Ack delivery back to sender
-    await _bluetooth.send(peerId, {
-      'type': 'ack',
-      'message_id': messageId,
-    });
+    await ack(messageId);
   }
 
   Future<void> dispose() async {
     await _incomingSub?.cancel();
+    await _codeSub?.cancel();
     await _messageEvents.close();
   }
-}
-
-Future<MessageService> createMessageService() async {
-  final db = AppDatabase.instance;
-  await db.database;
-
-  final bluetooth = BluetoothService();
-  final messages = MessageRepository(db);
-  final conversations = ConversationRepository(db);
-
-  return MessageService(
-    bluetooth: bluetooth,
-    messages: messages,
-    conversations: conversations,
-  );
 }

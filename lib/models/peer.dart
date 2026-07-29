@@ -5,6 +5,8 @@ class Peer {
     required this.deviceId,
     this.rssi,
     this.isConnected = false,
+    this.isMessenger = false,
+    this.viaCode = false,
   });
 
   final String id;
@@ -12,6 +14,8 @@ class Peer {
   final String deviceId;
   final int? rssi;
   final bool isConnected;
+  final bool isMessenger;
+  final bool viaCode;
 
   Peer copyWith({
     String? id,
@@ -19,6 +23,8 @@ class Peer {
     String? deviceId,
     int? rssi,
     bool? isConnected,
+    bool? isMessenger,
+    bool? viaCode,
   }) {
     return Peer(
       id: id ?? this.id,
@@ -26,6 +32,8 @@ class Peer {
       deviceId: deviceId ?? this.deviceId,
       rssi: rssi ?? this.rssi,
       isConnected: isConnected ?? this.isConnected,
+      isMessenger: isMessenger ?? this.isMessenger,
+      viaCode: viaCode ?? this.viaCode,
     );
   }
 }

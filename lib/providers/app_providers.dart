@@ -6,6 +6,7 @@ import '../models/conversation.dart';
 import '../models/message.dart';
 import '../models/peer.dart';
 import '../services/bluetooth/bluetooth_service.dart';
+import '../services/local/code_pairing_service.dart';
 import '../services/messaging/message_service.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -26,12 +27,19 @@ final bluetoothServiceProvider = Provider<BluetoothService>((ref) {
   return service;
 });
 
+final codePairingServiceProvider = Provider<CodePairingService>((ref) {
+  final service = CodePairingService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
 final messageServiceProvider = FutureProvider<MessageService>((ref) async {
   final db = ref.watch(appDatabaseProvider);
   await db.database;
 
   final service = MessageService(
     bluetooth: ref.watch(bluetoothServiceProvider),
+    codePairing: ref.watch(codePairingServiceProvider),
     messages: ref.watch(messageRepositoryProvider),
     conversations: ref.watch(conversationRepositoryProvider),
   );

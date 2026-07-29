@@ -13,10 +13,12 @@ class ChatScreen extends ConsumerStatefulWidget {
     super.key,
     required this.peerId,
     required this.peerName,
+    this.viaCode = false,
   });
 
   final String peerId;
   final String peerName;
+  final bool viaCode;
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -28,7 +30,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _connectAndMarkRead();
+    if (!widget.viaCode) {
+      _connectAndMarkRead();
+    } else {
+      _markReadOnly();
+    }
+  }
+
+  Future<void> _markReadOnly() async {
+    final conv = await ref
+        .read(conversationRepositoryProvider)
+        .getByPeerId(widget.peerId);
+    if (conv != null) {
+      await ref.read(conversationRepositoryProvider).markRead(conv.id);
+      ref.read(messageRefreshProvider.notifier).state++;
+    }
   }
 
   Future<void> _connectAndMarkRead() async {
@@ -95,7 +111,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           children: [
             Text(widget.peerName),
             Text(
-              connected ? 'online via Bluetooth' : 'offline',
+              widget.viaCode
+                  ? 'connected via code (no internet)'
+                  : connected
+                      ? 'online via Bluetooth'
+                      : 'offline',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
             ),
           ],
@@ -114,11 +134,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               child: messages.when(
                 data: (items) {
                   if (items.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Text(
-                        'Messages travel over Bluetooth\nNo internet required',
+                        widget.viaCode
+                            ? 'Messages travel over local WiFi/hotspot\nNo internet required'
+                            : 'Messages travel over Bluetooth\nNo internet required',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.subtitle),
+                        style: const TextStyle(color: AppColors.subtitle),
                       ),
                     );
                   }

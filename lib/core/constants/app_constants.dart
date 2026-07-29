@@ -21,4 +21,6 @@ abstract final class AppConstants {
   static const maxBlePayload = 512;
   static const deviceNamePrefix = 'BTMsg-';
   static const legacyDeviceNamePrefix = 'BTMsg_';
+  static const localPeerPrefix = 'local:';
+  static const udpDiscoveryPort = 45678;
 }

@@ -167,21 +167,12 @@ class BluetoothService {
       await FlutterBluePlus.startScan(
         timeout: const Duration(seconds: 20),
         androidScanMode: AndroidScanMode.lowLatency,
-        withServices: [Guid(AppConstants.bleServiceUuid)],
       );
     } catch (e) {
-      // Fallback: scan all devices if service-filtered scan fails
-      try {
-        await FlutterBluePlus.startScan(
-          timeout: const Duration(seconds: 20),
-          androidScanMode: AndroidScanMode.lowLatency,
-        );
-      } catch (e2) {
-        _scanning = false;
-        _connectionController.add(BluetoothConnectionState.error);
-        debugPrint('BLE scan failed: $e2');
-        return;
-      }
+      _scanning = false;
+      _connectionController.add(BluetoothConnectionState.error);
+      debugPrint('BLE scan failed: $e');
+      return;
     }
 
     Future.delayed(const Duration(seconds: 20), () {
@@ -205,17 +196,20 @@ class BluetoothService {
       final platformName = result.device.platformName;
       final name = advName.isNotEmpty ? advName : platformName;
 
-      final isOurs = _matchesPrefix(name) || _hasOurService(result);
-      if (!isOurs) continue;
+      final isMessenger = _matchesPrefix(name) || _hasOurService(result);
+      if (name.isEmpty && !isMessenger) continue;
 
       final deviceId = result.device.remoteId.str;
-      final peerName = name.isNotEmpty ? _nameWithoutPrefix(name) : deviceId;
+      final peerName = name.isNotEmpty
+          ? (isMessenger ? _nameWithoutPrefix(name) : name)
+          : deviceId;
 
       final peer = Peer(
         id: deviceId,
         name: peerName,
         deviceId: deviceId,
         rssi: result.rssi,
+        isMessenger: isMessenger,
       );
 
       _discovered[peer.id] = peer;
