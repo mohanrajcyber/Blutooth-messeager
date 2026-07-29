@@ -1,5 +1,3 @@
-import com.android.build.gradle.BaseExtension
-
 allprojects {
     repositories {
         google()
@@ -24,8 +22,10 @@ subprojects {
 // Force all Flutter plugins (e.g. file_picker) to compile against API 36.
 subprojects {
     afterEvaluate {
-        extensions.findByType(BaseExtension::class.java)?.apply {
-            compileSdkVersion(36)
+        extensions.findByName("android")?.let { androidExt ->
+            androidExt.javaClass.methods
+                .find { it.name == "setCompileSdkVersion" && it.parameterTypes.size == 1 }
+                ?.invoke(androidExt, 36)
         }
     }
 }
