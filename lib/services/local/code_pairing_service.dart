@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../core/constants/app_constants.dart';
 
 class CodePeerFound {
@@ -43,6 +45,9 @@ class CodePairingService {
   int? _lastPort;
   String? _lastPartnerCode;
 
+  Timer? _ipRefreshTimer;
+
+  static const _savedCodeKey = 'bt_device_code';
   String? _searchingForCode;
   Completer<CodePeerFound?>? _searchCompleter;
 
@@ -62,13 +67,32 @@ class CodePairingService {
   bool get isPaired => _connectedPeerCode != null;
   String? get sessionKey => _sessionKey;
 
+  /// True when on phone hotspot / local WiFi (not mobile-data/VPN).
+  bool get isHotspotReady {
+    if (_localIp.isEmpty) return false;
+    if (_localIp.startsWith('172.')) return false;
+    return _localIp.startsWith('192.168.') || _localIp.startsWith('10.');
+  }
+
+  String get networkHint {
+    if (_localIp.isEmpty) return 'Checking network…';
+    if (_localIp.startsWith('172.')) {
+      return 'Mobile data/VPN detected ($_localIp). Turn OFF mobile data, turn ON hotspot.';
+    }
+    if (_localIp.startsWith('192.168.43.') ||
+        _localIp.startsWith('192.168.137.')) {
+      return 'Hotspot OK — $_localIp';
+    }
+    return 'Network: $_localIp';
+  }
+
   void setOutgoingSessionKey(String key) => _outgoingSessionKey = key;
 
   Future<void> start({required String displayName}) async {
     if (_myCode.isNotEmpty) return;
 
     _myName = displayName.trim().isEmpty ? 'User' : displayName.trim();
-    _myCode = _generateCode();
+    _myCode = await _loadOrCreateCode();
     await _refreshLocalIp();
     await _startServer();
     await _startTcpDiscovery();
@@ -76,8 +100,38 @@ class CodePairingService {
     _broadcastTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       _broadcastPresence();
     });
+    _ipRefreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      unawaited(_checkIpChanged());
+    });
     _broadcastPresence();
     _statusController.add('Your code: $_myCode');
+    _statusController.add(networkHint);
+  }
+
+  Future<void> _checkIpChanged() async {
+    final prev = _localIp;
+    await _refreshLocalIp();
+    if (_localIp != prev) {
+      _statusController.add(networkHint);
+    }
+  }
+
+  Future<String> _loadOrCreateCode() async {
+    final prefix = (Platform.isAndroid || Platform.isIOS) ? 'MOB' : 'PC';
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_savedCodeKey)?.trim().toUpperCase();
+      if (saved != null &&
+          saved.startsWith('$prefix-') &&
+          saved.length >= 7) {
+        return saved;
+      }
+      final code = _generateCode();
+      await prefs.setString(_savedCodeKey, code);
+      return code;
+    } catch (_) {
+      return _generateCode();
+    }
   }
 
   String _generateCode() {
@@ -89,6 +143,7 @@ class CodePairingService {
 
   Future<void> _refreshLocalIp() async {
     _localIp = '';
+    final candidates = <String>[];
     try {
       for (final iface in await NetworkInterface.list(
         type: InternetAddressType.IPv4,
@@ -97,29 +152,63 @@ class CodePairingService {
         for (final addr in iface.addresses) {
           final ip = addr.address;
           if (!ip.startsWith('127.')) {
-            _localIp = ip;
-            return;
+            candidates.add(ip);
           }
         }
       }
     } catch (_) {}
+
+    if (candidates.isEmpty) return;
+
+    // Prefer phone-hotspot / local WiFi over VPN or mobile-data interfaces.
+    int score(String ip) {
+      if (ip.startsWith('192.168.43.')) return 100; // Android hotspot
+      if (ip.startsWith('192.168.137.')) return 95; // Windows hotspot client
+      if (ip.startsWith('192.168.')) return 80;
+      if (ip.startsWith('10.')) return 70;
+      if (ip.startsWith('172.')) return 10; // Often VPN / carrier — avoid
+      return 20;
+    }
+
+    candidates.sort((a, b) => score(b).compareTo(score(a)));
+    _localIp = candidates.first;
+  }
+
+  Future<Set<String>> _allLocalIps() async {
+    await _refreshLocalIp();
+    final ips = <String>{};
+    try {
+      for (final iface in await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLinkLocal: false,
+      )) {
+        for (final addr in iface.addresses) {
+          final ip = addr.address;
+          if (!ip.startsWith('127.')) ips.add(ip);
+        }
+      }
+    } catch (_) {}
+    if (_localIp.isNotEmpty) ips.add(_localIp);
+    return ips;
   }
 
   Future<List<String>> _candidateHostIps() async {
-    await _refreshLocalIp();
     final ips = <String>{
       '192.168.43.1',
       '192.168.137.1',
       '192.168.0.1',
       '192.168.1.1',
+      '192.168.32.1',
     };
 
-    if (_localIp.isNotEmpty) {
-      final parts = _localIp.split('.');
+    for (final local in await _allLocalIps()) {
+      ips.add(local);
+      final parts = local.split('.');
       if (parts.length == 4) {
         final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
         ips.add('$prefix.1');
-        for (var i = 1; i <= 30; i++) {
+        ips.add('$prefix.255');
+        for (var i = 1; i <= 50; i++) {
           ips.add('$prefix.$i');
         }
       }
@@ -133,8 +222,8 @@ class CodePairingService {
       InternetAddress('255.255.255.255'),
     };
 
-    if (_localIp.isNotEmpty) {
-      final parts = _localIp.split('.');
+    for (final local in await _allLocalIps()) {
+      final parts = local.split('.');
       if (parts.length == 4) {
         targets.add(
           InternetAddress('${parts[0]}.${parts[1]}.${parts[2]}.255'),
@@ -354,8 +443,8 @@ class CodePairingService {
 
     if (found == null) {
       _statusController.add(
-        'Code $code not found. Keep both apps on this screen. '
-        'Phone hotspot ON, PC on same WiFi.',
+        'Code $code not found on $_localIp. '
+        'Phone hotspot ON → PC connect same WiFi → mobile data OFF on phone.',
       );
       return false;
     }
@@ -492,6 +581,7 @@ class CodePairingService {
 
   Future<void> dispose() async {
     _broadcastTimer?.cancel();
+    _ipRefreshTimer?.cancel();
     _searchProbeTimer?.cancel();
     _keepaliveTimer?.cancel();
     _reconnectTimer?.cancel();

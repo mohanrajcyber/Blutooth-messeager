@@ -23,6 +23,7 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
   final _partnerCodeController = TextEditingController();
   String _status = 'Starting…';
   StreamSubscription<void>? _pairedSub;
+  Timer? _uiRefreshTimer;
   bool _navigating = false;
 
   @override
@@ -39,6 +40,9 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
       if (mounted) setState(() => _status = s);
     });
     _pairedSub = code.pairedStream.listen((_) => _openChatIfPaired());
+    _uiRefreshTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted) setState(() {});
+    });
     if (mounted) setState(() => _status = 'Your code: ${code.myCode}');
   }
 
@@ -94,6 +98,7 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
 
   @override
   void dispose() {
+    _uiRefreshTimer?.cancel();
     _pairedSub?.cancel();
     _partnerCodeController.dispose();
     super.dispose();
@@ -181,15 +186,29 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            if (code.localIp.isNotEmpty)
-              Text(
-                'Network: ${code.localIp}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.subtitle,
-                  fontSize: 13,
+            if (code.localIp.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: code.isHotspotReady
+                      ? AppColors.accent.withValues(alpha: 0.15)
+                      : Colors.orange.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  code.networkHint,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: code.isHotspotReady
+                        ? AppColors.accent
+                        : Colors.orange.shade200,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
+            ],
             Text(
               _status,
               textAlign: TextAlign.center,
