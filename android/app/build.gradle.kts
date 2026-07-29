@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.example.bluetooth_messenger"
-    compileSdk = flutter.compileSdkVersion
+    // Pin compileSdk 36 — flutter_plugin_android_lifecycle and other plugins require API 36+.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
