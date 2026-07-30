@@ -9,59 +9,72 @@ import '../../core/constants/app_constants.dart';
 /// Starts BLE GATT server + advertising so other devices can discover us.
 class BleAdvertiser {
   bool _running = false;
+  String? _lastError;
 
   bool get isRunning => _running;
+  String? get lastError => _lastError;
 
   Future<void> start(String displayName) async {
     if (_running) return;
     if (!(Platform.isAndroid || Platform.isWindows || Platform.isMacOS)) {
+      _lastError = 'BLE advertising not supported on this platform';
       return;
     }
 
-    try {
-      await BlePeripheral.initialize();
-      if (!await BlePeripheral.isSupported()) return;
+    _lastError = null;
+    for (var attempt = 0; attempt < 3 && !_running; attempt++) {
+      try {
+        await BlePeripheral.initialize();
+        if (!await BlePeripheral.isSupported()) {
+          _lastError = 'BLE peripheral mode not supported';
+          return;
+        }
 
-      BlePeripheral.setWriteRequestCallback(
-        (deviceId, characteristicId, offset, value) {
-          return WriteRequestResult(status: 0);
-        },
-      );
+        BlePeripheral.setWriteRequestCallback(
+          (deviceId, characteristicId, offset, value) {
+            return WriteRequestResult(status: 0);
+          },
+        );
 
-      await BlePeripheral.clearServices();
-      await BlePeripheral.addService(
-        BleService(
-          uuid: AppConstants.bleServiceUuid,
-          primary: true,
-          characteristics: [
-            BleCharacteristic(
-              uuid: AppConstants.bleTxCharUuid,
-              properties: [CharacteristicProperties.write.index],
-              permissions: [AttributePermissions.writeable.index],
-              descriptors: null,
-              value: Uint8List(0),
-            ),
-            BleCharacteristic(
-              uuid: AppConstants.bleRxCharUuid,
-              properties: [CharacteristicProperties.notify.index],
-              permissions: [AttributePermissions.readable.index],
-              descriptors: null,
-              value: Uint8List(0),
-            ),
-          ],
-        ),
-      );
+        await BlePeripheral.clearServices();
+        await BlePeripheral.addService(
+          BleService(
+            uuid: AppConstants.bleServiceUuid,
+            primary: true,
+            characteristics: [
+              BleCharacteristic(
+                uuid: AppConstants.bleTxCharUuid,
+                properties: [CharacteristicProperties.write.index],
+                permissions: [AttributePermissions.writeable.index],
+                descriptors: null,
+                value: Uint8List(0),
+              ),
+              BleCharacteristic(
+                uuid: AppConstants.bleRxCharUuid,
+                properties: [CharacteristicProperties.notify.index],
+                permissions: [AttributePermissions.readable.index],
+                descriptors: null,
+                value: Uint8List(0),
+              ),
+            ],
+          ),
+        );
 
-      final localName = _localName(displayName);
-      await BlePeripheral.startAdvertising(
-        services: [AppConstants.bleServiceUuid],
-        localName: localName,
-        requireBonding: false,
-      );
-      _running = true;
-      debugPrint('BLE advertising as $localName');
-    } catch (e) {
-      debugPrint('BLE advertise failed: $e');
+        final localName = _localName(displayName);
+        await BlePeripheral.startAdvertising(
+          services: [AppConstants.bleServiceUuid],
+          localName: localName,
+          requireBonding: false,
+        );
+        _running = true;
+        _lastError = null;
+        debugPrint('BLE advertising as $localName');
+        return;
+      } catch (e) {
+        _lastError = e.toString();
+        debugPrint('BLE advertise failed (attempt ${attempt + 1}): $e');
+        await Future.delayed(const Duration(milliseconds: 800));
+      }
     }
   }
 

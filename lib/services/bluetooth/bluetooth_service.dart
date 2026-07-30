@@ -55,6 +55,7 @@ class BluetoothService {
   bool _adapterOn = false;
   bool _scanning = false;
   String _displayName = 'User';
+  Timer? _scanRestartTimer;
 
   Stream<List<Peer>> get peersStream => _peersController.stream;
   Stream<IncomingPacket> get incomingStream => _incomingController.stream;
@@ -64,11 +65,31 @@ class BluetoothService {
   bool get isAdapterOn => _adapterOn;
   bool get isBleSupported => _isBleSupported;
   bool get isAdvertising => _advertiser.isRunning;
+  String? get advertiseError => _advertiser.lastError;
+
+  bool get isScanning => _scanning;
+  int get discoveredCount => _discovered.length;
 
   String get advertiseName {
     final trimmed = _displayName.trim().isEmpty ? 'User' : _displayName.trim();
     final short = trimmed.length > 8 ? trimmed.substring(0, 8) : trimmed;
     return '${AppConstants.deviceNamePrefix}$short';
+  }
+
+  String _shortId(String deviceId) {
+    if (deviceId.length <= 8) return deviceId;
+    return deviceId.substring(deviceId.length - 8);
+  }
+
+  String _peerLabel({
+    required String deviceId,
+    required String name,
+    required bool isMessenger,
+  }) {
+    if (name.isNotEmpty) {
+      return isMessenger ? _nameWithoutPrefix(name) : name;
+    }
+    return 'Unknown device · ${_shortId(deviceId)}';
   }
 
   bool _matchesPrefix(String name) {
@@ -146,6 +167,23 @@ class BluetoothService {
   }
 
   Future<void> startDiscovery() async {
+    await _startDiscovery(clearList: true);
+  }
+
+  /// Force a fresh scan (refresh button).
+  Future<void> rescan() async {
+    _scanRestartTimer?.cancel();
+    _scanRestartTimer = null;
+    if (_scanning) {
+      try {
+        await FlutterBluePlus.stopScan();
+      } catch (_) {}
+      _scanning = false;
+    }
+    await _startDiscovery(clearList: true);
+  }
+
+  Future<void> _startDiscovery({required bool clearList}) async {
     if (!_isBleSupported) {
       _connectionController.add(BluetoothConnectionState.error);
       _peersController.add([]);
@@ -157,52 +195,114 @@ class BluetoothService {
       await _advertiser.start(_displayName);
     }
 
-    if (_scanning) return;
     if (!_adapterOn) {
       _connectionController.add(BluetoothConnectionState.error);
       _peersController.add([]);
       return;
     }
 
-    _scanning = true;
-    _discovered.clear();
-    _peersController.add([]);
-    _connectionController.add(BluetoothConnectionState.scanning);
-
-    try {
-      await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 45),
-        androidScanMode: AndroidScanMode.lowLatency,
-        continuousUpdates: true,
-        withServices: [Guid(AppConstants.bleServiceUuid)],
-      );
-      // Also scan all devices briefly to list names (some phones hide service UUID).
-      Future.delayed(const Duration(seconds: 3), () async {
-        if (!_scanning) return;
-        try {
-          await FlutterBluePlus.startScan(
-            timeout: const Duration(seconds: 42),
-            androidScanMode: AndroidScanMode.lowLatency,
-            continuousUpdates: true,
-          );
-        } catch (_) {}
-      });
-    } catch (e) {
-      _scanning = false;
-      _connectionController.add(BluetoothConnectionState.error);
-      debugPrint('BLE scan failed: $e');
-      return;
+    if (clearList) {
+      _discovered.clear();
+      _peersController.add([]);
     }
 
-    Future.delayed(const Duration(seconds: 45), () {
-      if (_scanning) stopDiscovery();
+    _scanning = true;
+    _connectionController.add(BluetoothConnectionState.scanning);
+
+    await _loadKnownDevices();
+
+    try {
+      await _runScanPass();
+      _scheduleScanRestarts();
+    } catch (e) {
+      _scanning = false;
+      _scanRestartTimer?.cancel();
+      _connectionController.add(BluetoothConnectionState.error);
+      debugPrint('BLE scan failed: $e');
+    }
+  }
+
+  Future<void> _runScanPass() async {
+    await FlutterBluePlus.startScan(
+      timeout: const Duration(seconds: 0),
+      continuousUpdates: true,
+      androidScanMode: AndroidScanMode.lowLatency,
+      androidUsesFineLocation: true,
+      androidLegacy: Platform.isAndroid,
+    );
+  }
+
+  void _scheduleScanRestarts() {
+    _scanRestartTimer?.cancel();
+    _scanRestartTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
+      if (!_scanning) return;
+      try {
+        await _runScanPass();
+      } catch (e) {
+        debugPrint('BLE scan restart: $e');
+      }
     });
+  }
+
+  Future<void> retryAdvertising() async {
+    await _advertiser.stop();
+    await _advertiser.start(_displayName);
+  }
+
+  Future<void> _loadKnownDevices() async {
+    try {
+      for (final services in [
+        [Guid('1800')],
+        [Guid(AppConstants.bleServiceUuid)],
+      ]) {
+        final devices = await FlutterBluePlus.systemDevices(services);
+        for (final device in devices) {
+          _addDevice(device, rssi: null);
+        }
+      }
+
+      if (Platform.isAndroid) {
+        for (final device in await FlutterBluePlus.bondedDevices) {
+          _addDevice(device, rssi: null);
+        }
+      }
+
+      _peersController.add(_discovered.values.toList());
+    } catch (e) {
+      debugPrint('Load known BT devices: $e');
+    }
+  }
+
+  void _addDevice(BluetoothDevice device, {int? rssi}) {
+    final advName = device.advName;
+    final platformName = device.platformName;
+    final name = advName.isNotEmpty ? advName : platformName;
+
+    final isMessenger = _matchesPrefix(name);
+    final deviceId = device.remoteId.str;
+
+    final peer = Peer(
+      id: deviceId,
+      name: _peerLabel(
+        deviceId: deviceId,
+        name: name,
+        isMessenger: isMessenger,
+      ),
+      deviceId: deviceId,
+      rssi: rssi,
+      isMessenger: isMessenger,
+    );
+
+    _discovered[peer.id] = peer;
+    _devices[peer.id] = device;
   }
 
   Future<void> stopDiscovery() async {
     if (!_isBleSupported) return;
     if (!_scanning) return;
     _scanning = false;
+    _scanRestartTimer?.cancel();
+    _scanRestartTimer = null;
     try {
       await FlutterBluePlus.stopScan();
     } catch (_) {}
@@ -213,22 +313,18 @@ class BluetoothService {
     for (final result in results) {
       final advName = result.advertisementData.advName;
       final platformName = result.device.platformName;
-      final localName = result.advertisementData.localName;
-      final name = advName.isNotEmpty
-          ? advName
-          : (platformName.isNotEmpty ? platformName : localName);
+      final name = advName.isNotEmpty ? advName : platformName;
 
       final isMessenger = _matchesPrefix(name) || _hasOurService(result);
-      if (name.isEmpty && !isMessenger) continue;
-
       final deviceId = result.device.remoteId.str;
-      final peerName = name.isNotEmpty
-          ? (isMessenger ? _nameWithoutPrefix(name) : name)
-          : 'Device ${deviceId.substring(deviceId.length > 6 ? deviceId.length - 6 : 0)}';
 
       final peer = Peer(
         id: deviceId,
-        name: peerName,
+        name: _peerLabel(
+          deviceId: deviceId,
+          name: name,
+          isMessenger: isMessenger,
+        ),
         deviceId: deviceId,
         rssi: result.rssi,
         isMessenger: isMessenger,
@@ -333,6 +429,7 @@ class BluetoothService {
   }
 
   Future<void> dispose() async {
+    _scanRestartTimer?.cancel();
     await stopDiscovery();
     await _advertiser.stop();
     for (final sub in _notifySubs.values) {
