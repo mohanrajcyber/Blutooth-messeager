@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/pairing_navigation.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/app_providers.dart';
 import '../providers/connection_providers.dart';
@@ -27,10 +30,18 @@ class ChatsScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatsScreenState extends ConsumerState<ChatsScreen> {
+  StreamSubscription<void>? _pairedSub;
+
   @override
   void initState() {
     super.initState();
     _bootstrap();
+  }
+
+  @override
+  void dispose() {
+    _pairedSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _bootstrap() async {
@@ -39,6 +50,15 @@ class _ChatsScreenState extends ConsumerState<ChatsScreen> {
     final name = ref.read(displayNameProvider);
     final bluetooth = ref.read(bluetoothServiceProvider);
     await bluetooth.initialize(displayName: name);
+
+    // Start code pairing as soon as app opens — required for QR/code sync.
+    await PairingNavigation.ensureStarted(ref, name);
+    _pairedSub?.cancel();
+    _pairedSub = ref.read(codePairingServiceProvider).pairedStream.listen((_) {
+      if (mounted) {
+        unawaited(PairingNavigation.openChatIfPaired(context, ref));
+      }
+    });
 
     final service = await ref.read(messageServiceProvider.future);
     service.messageEvents.listen((_) {

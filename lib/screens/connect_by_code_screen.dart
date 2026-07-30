@@ -5,11 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/pairing_navigation.dart';
 import '../providers/app_providers.dart';
-import '../providers/connection_providers.dart';
 import '../providers/settings_providers.dart';
 import '../services/security/encryption_service.dart';
-import 'chat_screen.dart';
 
 class ConnectByCodeScreen extends ConsumerStatefulWidget {
   const ConnectByCodeScreen({super.key});
@@ -48,28 +47,9 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
 
   Future<void> _openChatIfPaired() async {
     if (_navigating || !mounted) return;
-    final code = ref.read(codePairingServiceProvider);
-    if (!code.isPaired) return;
-
     _navigating = true;
-    final peerId = code.localPeerId;
-    final peerName = code.connectedPeerName ?? code.connectedPeerCode ?? 'Partner';
-
-    ref.read(activeSessionProvider.notifier).state = ActiveSession(
-      peerId: peerId,
-      peerName: peerName,
-      viaCode: true,
-    );
-
-    await Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(
-          peerId: peerId,
-          peerName: peerName,
-          viaCode: true,
-        ),
-      ),
-    );
+    await PairingNavigation.openChatIfPaired(context, ref, replace: true);
+    _navigating = false;
   }
 
   Future<void> _connect() async {
@@ -77,6 +57,17 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
     if (partner.isEmpty) return;
 
     final code = ref.read(codePairingServiceProvider);
+    if (!code.isHotspotReady) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Phone: mobile data OFF + hotspot ON. PC: join phone WiFi first.',
+          ),
+          duration: Duration(seconds: 5),
+        ),
+      );
+    }
+
     final encryption = ref.read(encryptionServiceProvider);
     code.setOutgoingSessionKey(encryption.generateSessionKey());
     final ok = await code.connectToCode(partner);

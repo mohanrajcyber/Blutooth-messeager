@@ -409,6 +409,11 @@ class CodePairingService {
   }
 
   Future<bool> connectToCode(String partnerCode) async {
+    if (_myCode.isEmpty || _server == null || _udp == null) {
+      _statusController.add('Pairing not ready — wait a moment and try again');
+      return false;
+    }
+
     final code = partnerCode.trim().toUpperCase();
     if (code.isEmpty) return false;
     if (code == _myCode.toUpperCase()) {
