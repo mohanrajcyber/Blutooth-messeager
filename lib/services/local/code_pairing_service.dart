@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../core/constants/app_constants.dart';
 
 class CodePeerFound {
@@ -47,7 +45,6 @@ class CodePairingService {
 
   Timer? _ipRefreshTimer;
 
-  static const _savedCodeKey = 'bt_device_code';
   String? _searchingForCode;
   Completer<CodePeerFound?>? _searchCompleter;
 
@@ -92,7 +89,7 @@ class CodePairingService {
     if (_myCode.isNotEmpty) return;
 
     _myName = displayName.trim().isEmpty ? 'User' : displayName.trim();
-    _myCode = await _loadOrCreateCode();
+    _myCode = _generateCode();
     await _refreshLocalIp();
     await _startServer();
     await _startTcpDiscovery();
@@ -108,29 +105,34 @@ class CodePairingService {
     _statusController.add(networkHint);
   }
 
+  /// Fresh code for each connect attempt — avoids stale same-code pairing issues.
+  Future<void> regenerateCode() async {
+    if (_server == null) return;
+
+    _searchProbeTimer?.cancel();
+    _searchProbeTimer = null;
+    _searchingForCode = null;
+    _searchCompleter = null;
+
+    await _socket?.close();
+    _socket = null;
+    _connectedPeerCode = null;
+    _connectedPeerName = null;
+    _sessionKey = null;
+    _lastAddress = null;
+    _lastPort = null;
+    _readBuffer = '';
+
+    _myCode = _generateCode();
+    _broadcastPresence();
+    _statusController.add('New code: $_myCode');
+  }
+
   Future<void> _checkIpChanged() async {
     final prev = _localIp;
     await _refreshLocalIp();
     if (_localIp != prev) {
       _statusController.add(networkHint);
-    }
-  }
-
-  Future<String> _loadOrCreateCode() async {
-    final prefix = (Platform.isAndroid || Platform.isIOS) ? 'MOB' : 'PC';
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(_savedCodeKey)?.trim().toUpperCase();
-      if (saved != null &&
-          saved.startsWith('$prefix-') &&
-          saved.length >= 7) {
-        return saved;
-      }
-      final code = _generateCode();
-      await prefs.setString(_savedCodeKey, code);
-      return code;
-    } catch (_) {
-      return _generateCode();
     }
   }
 

@@ -22,6 +22,7 @@ class _QrConnectScreenState extends ConsumerState<QrConnectScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final name = ref.read(displayNameProvider);
       await PairingNavigation.ensureStarted(ref, name);
+      await ref.read(codePairingServiceProvider).regenerateCode();
       if (mounted) setState(() {});
     });
   }
@@ -70,6 +71,22 @@ class _QrConnectScreenState extends ConsumerState<QrConnectScreen> {
               ),
             ],
             const Spacer(),
+            FilledButton.icon(
+              onPressed: code.myCode.isEmpty
+                  ? null
+                  : () async {
+                      await code.regenerateCode();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('New code: ${code.myCode}')),
+                        );
+                      }
+                      setState(() {});
+                    },
+              icon: const Icon(Icons.refresh),
+              label: const Text('New code'),
+            ),
+            const SizedBox(height: 8),
             FilledButton.icon(
               onPressed: code.myCode.isEmpty
                   ? null

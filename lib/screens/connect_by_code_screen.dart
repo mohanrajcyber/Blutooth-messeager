@@ -35,6 +35,7 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
     final name = ref.read(displayNameProvider);
     final code = ref.read(codePairingServiceProvider);
     await code.start(displayName: name);
+    await code.regenerateCode();
     code.statusStream.listen((s) {
       if (mounted) setState(() => _status = s);
     });
@@ -147,6 +148,25 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
                         side: const BorderSide(color: Colors.white54),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: code.myCode.isEmpty
+                          ? null
+                          : () async {
+                              await code.regenerateCode();
+                              if (mounted) {
+                                setState(() {
+                                  _partnerCodeController.clear();
+                                  _status = 'New code: ${code.myCode}';
+                                });
+                              }
+                            },
+                      icon: const Icon(Icons.refresh, color: Colors.white70),
+                      label: const Text(
+                        'New code',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -155,6 +175,12 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
             const Text(
               'Enter partner code',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Partner code enter pannunga — unga code illa (MOB↔PC different)',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.subtitle, fontSize: 12),
             ),
             const SizedBox(height: 8),
             TextField(
