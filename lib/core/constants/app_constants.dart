@@ -32,4 +32,5 @@ abstract final class AppConstants {
   static const localPeerPrefix = 'local:';
   static const udpDiscoveryPort = 45678;
   static const tcpDiscoveryPort = 45679;
+  static const tcpMessagePort = 45680;
 }

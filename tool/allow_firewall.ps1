@@ -12,4 +12,5 @@ if (-not (Test-Path $exe)) {
 New-NetFirewallRule -DisplayName "BT Messenger App" -Direction Inbound -Program $exe -Action Allow -ErrorAction SilentlyContinue | Out-Null
 New-NetFirewallRule -DisplayName "BT Messenger UDP 45678" -Direction Inbound -Protocol UDP -LocalPort 45678 -Action Allow -ErrorAction SilentlyContinue | Out-Null
 New-NetFirewallRule -DisplayName "BT Messenger TCP 45679" -Direction Inbound -Protocol TCP -LocalPort 45679 -Action Allow -ErrorAction SilentlyContinue | Out-Null
-Write-Host "Firewall rules added for BT Messenger (app + ports 45678/45679)"
+New-NetFirewallRule -DisplayName "BT Messenger TCP 45680" -Direction Inbound -Protocol TCP -LocalPort 45680 -Action Allow -ErrorAction SilentlyContinue | Out-Null
+Write-Host "Firewall rules added (ports 45678 UDP, 45679/45680 TCP)"

@@ -105,7 +105,14 @@ class CodePairingService {
     _statusController.add(networkHint);
   }
 
-  /// Fresh code for each connect attempt — avoids stale same-code pairing issues.
+  /// Refresh network + rebroadcast without changing code (call when opening connect UI).
+  Future<void> refreshNetwork() async {
+    await _refreshLocalIp();
+    _broadcastPresence();
+    _statusController.add(networkHint);
+  }
+
+  /// Fresh code only when user taps "New code".
   Future<void> regenerateCode() async {
     if (_server == null) return;
 
@@ -210,7 +217,7 @@ class CodePairingService {
         final prefix = '${parts[0]}.${parts[1]}.${parts[2]}';
         ips.add('$prefix.1');
         ips.add('$prefix.255');
-        for (var i = 1; i <= 50; i++) {
+        for (var i = 1; i <= 254; i++) {
           ips.add('$prefix.$i');
         }
       }
@@ -244,7 +251,15 @@ class CodePairingService {
   }
 
   Future<void> _startServer() async {
-    _server = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    try {
+      _server = await ServerSocket.bind(
+        InternetAddress.anyIPv4,
+        AppConstants.tcpMessagePort,
+        shared: true,
+      );
+    } catch (_) {
+      _server = await ServerSocket.bind(InternetAddress.anyIPv4, 0);
+    }
     _server!.listen(_onClient);
   }
 
@@ -439,7 +454,7 @@ class CodePairingService {
     unawaited(_probeForCode(code));
 
     final found = await _searchCompleter!.future.timeout(
-      const Duration(seconds: 25),
+      const Duration(seconds: 40),
       onTimeout: () => null,
     );
 
@@ -522,7 +537,13 @@ class CodePairingService {
     _socket?.destroy();
     _socket = client;
     _readBuffer = '';
-    _socket!.listen(_onSocketData);
+    _lastAddress = client.remoteAddress;
+    _lastPort = _server?.port ?? AppConstants.tcpMessagePort;
+    _socket!.listen(
+      _onSocketData,
+      onDone: _scheduleReconnect,
+      onError: (_) => _scheduleReconnect(),
+    );
     _startKeepalive();
     _statusController.add('Partner connected');
     unawaited(_sendHello());

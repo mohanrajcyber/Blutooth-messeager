@@ -22,7 +22,7 @@ class _QrConnectScreenState extends ConsumerState<QrConnectScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final name = ref.read(displayNameProvider);
       await PairingNavigation.ensureStarted(ref, name);
-      await ref.read(codePairingServiceProvider).regenerateCode();
+      await ref.read(codePairingServiceProvider).refreshNetwork();
       if (mounted) setState(() {});
     });
   }

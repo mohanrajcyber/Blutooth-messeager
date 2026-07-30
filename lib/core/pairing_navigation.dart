@@ -48,6 +48,9 @@ class PairingNavigation {
     if (!context.mounted) return;
 
     if (DesktopChatsShell.isDesktop(context)) {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
       return;
     }
 

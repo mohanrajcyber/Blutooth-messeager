@@ -35,7 +35,7 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
     final name = ref.read(displayNameProvider);
     final code = ref.read(codePairingServiceProvider);
     await code.start(displayName: name);
-    await code.regenerateCode();
+    await code.refreshNetwork();
     code.statusStream.listen((s) {
       if (mounted) setState(() => _status = s);
     });
@@ -194,7 +194,7 @@ class _ConnectByCodeScreenState extends ConsumerState<ConnectByCodeScreen> {
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
-              onPressed: _connect,
+              onPressed: code.isHotspotReady ? _connect : null,
               icon: const Icon(Icons.link),
               label: const Text('Connect & pair'),
               style: FilledButton.styleFrom(
