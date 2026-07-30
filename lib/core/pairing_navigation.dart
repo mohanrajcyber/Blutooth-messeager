@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/app_providers.dart';
 import '../providers/connection_providers.dart';
 import '../screens/chat_screen.dart';
+import '../screens/desktop_chats_shell.dart';
 
 /// Opens chat after code pairing from any screen (code entry, QR scan, incoming).
 class PairingNavigation {
@@ -37,6 +38,18 @@ class PairingNavigation {
       peerName: peerName,
       viaCode: true,
     );
+
+    ref.read(selectedChatProvider.notifier).state = SelectedChat(
+      peerId: peerId,
+      peerName: peerName,
+      viaCode: true,
+    );
+
+    if (!context.mounted) return;
+
+    if (DesktopChatsShell.isDesktop(context)) {
+      return;
+    }
 
     final route = MaterialPageRoute<void>(
       builder: (_) => ChatScreen(

@@ -1,6 +1,7 @@
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../core/constants/app_constants.dart';
@@ -51,6 +52,26 @@ class _ChatInputBarState extends State<ChatInputBar> {
     widget.onSend(text);
     _controller.clear();
     setState(() => _showEmoji = false);
+  }
+
+  bool get _enterSends {
+    if (kIsWeb) return true;
+    return defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux;
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (!_enterSends || !widget.enabled) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (event.logicalKey != LogicalKeyboardKey.enter) {
+      return KeyEventResult.ignored;
+    }
+    if (HardwareKeyboard.instance.isShiftPressed) {
+      return KeyEventResult.ignored;
+    }
+    _submit();
+    return KeyEventResult.handled;
   }
 
   void _toggleEmoji() {
@@ -148,18 +169,27 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 icon: Icon(Icons.attach_file, color: chatTheme(context).subtitle),
               ),
               Expanded(
-                child: TextField(
-                  controller: _controller,
-                  focusNode: _focusNode,
-                  enabled: widget.enabled,
-                  onChanged: (_) => widget.onTyping?.call(),
-                  onSubmitted: (_) => _submit(),
-                  onTap: () {
-                    if (_showEmoji) setState(() => _showEmoji = false);
-                  },
-                  decoration: const InputDecoration(hintText: 'Message'),
-                  minLines: 1,
-                  maxLines: 5,
+                child: Focus(
+                  onKeyEvent: _onKey,
+                  child: TextField(
+                    controller: _controller,
+                    focusNode: _focusNode,
+                    enabled: widget.enabled,
+                    onChanged: (_) => widget.onTyping?.call(),
+                    onSubmitted: _enterSends ? (_) => _submit() : null,
+                    textInputAction:
+                        _enterSends ? TextInputAction.send : TextInputAction.newline,
+                    onTap: () {
+                      if (_showEmoji) setState(() => _showEmoji = false);
+                    },
+                    decoration: InputDecoration(
+                      hintText: _enterSends
+                          ? 'Message (Enter to send, Shift+Enter new line)'
+                          : 'Message',
+                    ),
+                    minLines: 1,
+                    maxLines: 5,
+                  ),
                 ),
               ),
               GestureDetector(

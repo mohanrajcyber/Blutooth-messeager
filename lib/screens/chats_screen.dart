@@ -13,6 +13,7 @@ import '../providers/settings_providers.dart';
 import '../services/notifications/notification_service.dart';
 import '../widgets/connection_banner.dart';
 import '../widgets/conversation_tile.dart';
+import 'desktop_chats_shell.dart';
 import 'chat_screen.dart';
 import 'connect_by_code_screen.dart';
 import 'contacts_screen.dart';
@@ -207,6 +208,18 @@ class _ChatsScreenState extends ConsumerState<ChatsScreen> {
     final conversations = ref.watch(conversationsProvider);
     final session = ref.watch(activeSessionProvider);
     final subtitle = chatTheme(context).subtitle;
+    final sessionSubtitle = session != null
+        ? 'Connected to ${session.peerName}'
+        : 'Offline · no internet needed';
+
+    if (DesktopChatsShell.isDesktop(context)) {
+      return DesktopChatsShell(
+        conversations: conversations,
+        onConnect: _openConnectSheet,
+        onMenu: _showMainMenu,
+        sessionSubtitle: sessionSubtitle,
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -215,9 +228,7 @@ class _ChatsScreenState extends ConsumerState<ChatsScreen> {
           children: [
             const Text(AppConstants.appName),
             Text(
-              session != null
-                  ? 'Connected to ${session.peerName}'
-                  : 'Offline · no internet needed',
+              sessionSubtitle,
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
             ),
           ],
@@ -289,6 +300,14 @@ class _ChatsScreenState extends ConsumerState<ChatsScreen> {
                       conversation: conversation,
                       isOnline: online,
                       onTap: () {
+                        ref.read(selectedChatProvider.notifier).state =
+                            SelectedChat(
+                          peerId: conversation.peerId,
+                          peerName: conversation.peerName,
+                          viaCode: conversation.peerId.startsWith(
+                            AppConstants.localPeerPrefix,
+                          ),
+                        );
                         Navigator.of(context).push(
                           PageRouteBuilder(
                             pageBuilder: (_, __, ___) => ChatScreen(

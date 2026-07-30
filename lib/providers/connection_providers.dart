@@ -16,7 +16,20 @@ class ActiveSession {
   final bool viaCode;
 }
 
+class SelectedChat {
+  const SelectedChat({
+    required this.peerId,
+    required this.peerName,
+    required this.viaCode,
+  });
+
+  final String peerId;
+  final String peerName;
+  final bool viaCode;
+}
+
 final activeSessionProvider = StateProvider<ActiveSession?>((ref) => null);
+final selectedChatProvider = StateProvider<SelectedChat?>((ref) => null);
 
 bool isLocalPeerId(String peerId) =>
     peerId.startsWith(AppConstants.localPeerPrefix);

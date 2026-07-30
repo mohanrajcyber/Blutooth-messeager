@@ -10,6 +10,7 @@ import '../models/peer.dart';
 import '../providers/app_providers.dart';
 import '../providers/connection_providers.dart';
 import '../providers/settings_providers.dart';
+import '../services/notifications/notification_service.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/chat_input_bar.dart';
 import '../widgets/whatsapp_chat_background.dart';
@@ -22,11 +23,13 @@ class ChatScreen extends ConsumerStatefulWidget {
     required this.peerId,
     required this.peerName,
     this.viaCode,
+    this.embedded = false,
   });
 
   final String peerId;
   final String peerName;
   final bool? viaCode;
+  final bool embedded;
 
   bool get isCodeChat =>
       viaCode ?? peerId.startsWith(AppConstants.localPeerPrefix);
@@ -45,6 +48,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    NotificationService.instance.setForegroundChat(widget.peerId);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(activeSessionProvider.notifier).state = ActiveSession(
         peerId: widget.peerId,
@@ -332,7 +336,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
       case 'disconnect':
         ref.read(activeSessionProvider.notifier).state = null;
-        if (mounted) Navigator.pop(context);
+        if (widget.embedded) {
+          ref.read(selectedChatProvider.notifier).state = null;
+        } else if (mounted) {
+          Navigator.pop(context);
+        }
       case 'exit':
         await SystemNavigator.pop();
     }
@@ -340,6 +348,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   void dispose() {
+    NotificationService.instance.setForegroundChat(null);
     _scrollController.dispose();
     _searchCtrl.dispose();
     super.dispose();
@@ -365,6 +374,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: !widget.embedded,
         title: Row(
           children: [
             CircleAvatar(

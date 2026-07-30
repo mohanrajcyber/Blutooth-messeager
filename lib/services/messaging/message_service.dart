@@ -455,6 +455,7 @@ class MessageService {
     await NotificationService.instance.showMessage(
       title: peerName,
       body: preview,
+      peerId: peerId,
     );
 
     await sendReadReceipt(peerId, [messageId]);

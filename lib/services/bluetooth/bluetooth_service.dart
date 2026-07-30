@@ -119,6 +119,12 @@ class BluetoothService {
         Permission.bluetoothAdvertise,
         Permission.locationWhenInUse,
         Permission.location,
+        Permission.notification,
+      ].request();
+    } else if (Platform.isIOS || Platform.isMacOS) {
+      await [
+        Permission.bluetooth,
+        Permission.locationWhenInUse,
       ].request();
     }
   }
@@ -165,9 +171,22 @@ class BluetoothService {
 
     try {
       await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 20),
+        timeout: const Duration(seconds: 45),
         androidScanMode: AndroidScanMode.lowLatency,
+        continuousUpdates: true,
+        withServices: [Guid(AppConstants.bleServiceUuid)],
       );
+      // Also scan all devices briefly to list names (some phones hide service UUID).
+      Future.delayed(const Duration(seconds: 3), () async {
+        if (!_scanning) return;
+        try {
+          await FlutterBluePlus.startScan(
+            timeout: const Duration(seconds: 42),
+            androidScanMode: AndroidScanMode.lowLatency,
+            continuousUpdates: true,
+          );
+        } catch (_) {}
+      });
     } catch (e) {
       _scanning = false;
       _connectionController.add(BluetoothConnectionState.error);
@@ -175,7 +194,7 @@ class BluetoothService {
       return;
     }
 
-    Future.delayed(const Duration(seconds: 20), () {
+    Future.delayed(const Duration(seconds: 45), () {
       if (_scanning) stopDiscovery();
     });
   }
@@ -194,7 +213,10 @@ class BluetoothService {
     for (final result in results) {
       final advName = result.advertisementData.advName;
       final platformName = result.device.platformName;
-      final name = advName.isNotEmpty ? advName : platformName;
+      final localName = result.advertisementData.localName;
+      final name = advName.isNotEmpty
+          ? advName
+          : (platformName.isNotEmpty ? platformName : localName);
 
       final isMessenger = _matchesPrefix(name) || _hasOurService(result);
       if (name.isEmpty && !isMessenger) continue;
@@ -202,7 +224,7 @@ class BluetoothService {
       final deviceId = result.device.remoteId.str;
       final peerName = name.isNotEmpty
           ? (isMessenger ? _nameWithoutPrefix(name) : name)
-          : deviceId;
+          : 'Device ${deviceId.substring(deviceId.length > 6 ? deviceId.length - 6 : 0)}';
 
       final peer = Peer(
         id: deviceId,
@@ -234,7 +256,8 @@ class BluetoothService {
     try {
       await device.connect(
         license: License.nonprofit,
-        timeout: const Duration(seconds: 12),
+        timeout: const Duration(seconds: 20),
+        autoConnect: true,
       );
       await _setupCharacteristics(device, peer.id);
       _connectionController.add(BluetoothConnectionState.connected);
